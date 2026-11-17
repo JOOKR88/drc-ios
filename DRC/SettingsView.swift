@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage(SettingKey.lockEnabled) private var lockEnabled = false
     @AppStorage(SettingKey.lockScope) private var lockScope = LockScope.dashboard.rawValue
     @AppStorage(SettingKey.lockGrace) private var lockGrace = 60
+    @AppStorage(SettingKey.webZoom) private var webZoom = 1.12
 
     @EnvironmentObject private var lock: LockManager
     @Environment(\.dismiss) private var dismiss
@@ -19,6 +20,16 @@ struct SettingsView: View {
                     Toggle("تبويب لوحة التحكم", isOn: $dashboardTab)
                 } footer: {
                     Text("يظهر في الشريط السفلي مكان المتجر، لأن iOS يعرض خمس تبويبات بحد أقصى. المتجر يبقى من الرئيسية وحسابي.")
+                }
+
+                Section {
+                    Picker("حجم صفحات الموقع", selection: $webZoom) {
+                        Text("عادي").tag(1.0)
+                        Text("كبير").tag(1.12)
+                        Text("أكبر").tag(1.25)
+                    }
+                } footer: {
+                    Text("يكبّر الخط والأزرار في صفحات الموقع داخل التطبيق (اللوحة والمتجر). يطبَّق لما تفتح الصفحة.")
                 }
 
                 Section {

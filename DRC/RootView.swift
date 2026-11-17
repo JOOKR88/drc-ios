@@ -147,7 +147,7 @@ struct RootView: View {
             if !exact.isNative { store.controller(for: exact).open(path: route) }
         } else if dashboardTab && route.hasPrefix("/dashboard") {
             selection = .dashboard
-            store.controller(for: .dashboard).open(path: route)
+            DashboardNavigator.shared.open(route)
         } else {
             // مسار بلا تبويب: صفحة الموقع في ورقة فوق التطبيق
             webSheet = SheetRoute(path: route, title: route.hasPrefix("/dashboard") ? "لوحة التحكم" : "DRC")
@@ -168,7 +168,9 @@ struct RootView: View {
             SoulsView()
         case .profile:
             ProfileView()
-        case .shop, .dashboard:
+        case .dashboard:
+            DashboardTab()
+        case .shop:
             WebTabView(controller: store.controller(for: tab), dashboardLock: dashboardLockOn, lock: lock)
         }
     }
@@ -215,7 +217,10 @@ struct WebTabView: View {
             }
         }
         .background(Theme.bg.ignoresSafeArea())
-        .onAppear { controller.loadIfNeeded() }
+        .onAppear {
+            controller.applyZoom()
+            controller.loadIfNeeded()
+        }
         .task(id: locked) {
             if locked && scenePhase == .active { unlock() }
         }

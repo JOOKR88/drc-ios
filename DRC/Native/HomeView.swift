@@ -246,7 +246,7 @@ private struct QuickGrid: View {
             Item(id: "bell", title: "التنبيهات", symbol: "bell.fill", route: .web(path: "/notifications", title: "التنبيهات"), tab: nil),
         ]
         if isOwner {
-            list.append(Item(id: "dash", title: "اللوحة", symbol: "square.grid.2x2.fill", route: .web(path: "/dashboard", title: "لوحة التحكم"), tab: nil))
+            list.append(Item(id: "dash", title: "اللوحة", symbol: "square.grid.2x2.fill", route: .dashboardMenu, tab: nil))
             list.append(Item(id: "arkorders", title: "طلبات آرك", symbol: "tray.full.fill", route: .web(path: "/dashboard/ark", title: "طلبات آرك"), tab: nil))
             list.append(Item(id: "stats", title: "الإحصائيات", symbol: "chart.xyaxis.line", route: .web(path: "/dashboard/stats", title: "الإحصائيات"), tab: nil))
             list.append(Item(id: "sugg", title: "الاقتراحات", symbol: "lightbulb.fill", route: .web(path: "/suggestions", title: "الاقتراحات"), tab: nil))

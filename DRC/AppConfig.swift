@@ -74,8 +74,8 @@ enum AppTab: String, CaseIterable, Identifiable {
     /// شاشات SwiftUI أصلية؛ الباقي (المتجر واللوحة) صفحات الموقع داخل التطبيق.
     var isNative: Bool {
         switch self {
-        case .home, .leaderboard, .souls, .profile: return true
-        case .shop, .dashboard: return false
+        case .home, .leaderboard, .souls, .profile, .dashboard: return true
+        case .shop: return false
         }
     }
 }
@@ -87,6 +87,7 @@ enum SettingKey {
     static let lockEnabled = "lockEnabled"
     static let lockScope = "lockScope"
     static let lockGrace = "lockGrace"
+    static let webZoom = "webZoom"
 }
 
 enum LockScope: String {

@@ -69,7 +69,8 @@ final class WebController: NSObject, ObservableObject {
         ucc.addUserScript(WKUserScript(source: hapticShim, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if hideAppChrome {
             // محدّدات أعلى أولوية من أنماط الموقع فتغلبها مهما كان ترتيب تحميلها
-            let css = "html body header.fixed.top-0.z-nav{display:none!important}html body main{padding-top:12px!important}"
+            // + قائمة اللوحة الجانبية: التطبيق له قائمة أصلية أكبر بدلها
+            let css = "html body header.fixed.top-0.z-nav{display:none!important}html body main{padding-top:12px!important}html body aside[class*=\"md:top-20\"]{display:none!important}"
             let js = "(function(){var s=document.createElement('style');s.textContent='" + css + "';(document.head||document.documentElement).appendChild(s);})();"
             ucc.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         }
@@ -116,6 +117,13 @@ final class WebController: NSObject, ObservableObject {
             let value = wv.isLoading
             Task { @MainActor in self?.isLoading = value }
         })
+    }
+
+    /// تكبير صفحات الموقع داخل التطبيق (من الإعدادات): يكبّر الخط والأزرار مع بقاء التصميم متجاوباً.
+    func applyZoom() {
+        let stored = UserDefaults.standard.double(forKey: SettingKey.webZoom)
+        let zoom = stored > 0 ? stored : 1.12
+        if abs(webView.pageZoom - zoom) > 0.001 { webView.pageZoom = zoom }
     }
 
     /// التبويب يحمّل صفحته أول مرة يظهر فيها فقط — ما نحمّل الخمس صفحات مع بعض عند التشغيل.

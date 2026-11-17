@@ -4,6 +4,7 @@ import SwiftUI
 enum Route: Hashable {
     case web(path: String, title: String)
     case article(slug: String)
+    case dashboardMenu
 }
 
 struct RouteDestination: View {
@@ -15,6 +16,8 @@ struct RouteDestination: View {
             WebScreen(path: path, title: title)
         case .article(let slug):
             ArticleView(slug: slug)
+        case .dashboardMenu:
+            DashboardMenu()
         }
     }
 }
@@ -56,7 +59,10 @@ struct WebScreen: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { controller.loadIfNeeded() }
+        .onAppear {
+            controller.applyZoom()
+            controller.loadIfNeeded()
+        }
         .task(id: locked) {
             if locked { await lock.authenticate(reason: "افتح لوحة التحكم") }
         }

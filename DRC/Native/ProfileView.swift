@@ -28,7 +28,7 @@ struct ProfileView: View {
                     }
                     if account.isOwner {
                         Section("الإدارة") {
-                            row("لوحة التحكم", "square.grid.2x2", .web(path: "/dashboard", title: "لوحة التحكم"))
+                            row("لوحة التحكم", "square.grid.2x2", .dashboardMenu)
                             row("طلبات آرك (اللوحة)", "tray.full", .web(path: "/dashboard/ark", title: "طلبات آرك"))
                             row("الإحصائيات", "chart.xyaxis.line", .web(path: "/dashboard/stats", title: "الإحصائيات"))
                         }
