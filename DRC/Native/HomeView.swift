@@ -7,6 +7,7 @@ struct HomeView: View {
     @ObservedObject private var board = LeaderboardStore.shared
     @ObservedObject private var souls = SoulsStore.shared
     @State private var showLogin = false
+    @State private var path: [Route] = []
 
     /// لغير المسجّل (أو قبل وصول الملخّص): أحدث مقالات Souls بصور من الفهرس.
     private var latestSouls: [MeSummary.SoulCard] {
@@ -18,10 +19,12 @@ struct HomeView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HomeHeader(user: account.user)
+                        .id("top")
 
                     if account.loggedIn == false {
                         WelcomeCard { showLogin = true }
@@ -52,6 +55,12 @@ struct HomeView: View {
             .refreshable { await account.refresh() }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
+                .onReceive(AppRouter.shared.$reselected) { r in
+                    guard let r, r.tab == .home else { return }
+                    if popIfNeeded() { return }
+                    withAnimation(.snappy) { proxy.scrollTo("top", anchor: .top) }
+                }
+            }
         }
         .sheet(isPresented: $showLogin) {
             LoginSheet {
@@ -68,6 +77,15 @@ struct HomeView: View {
                 await souls.loadIndex()
             }
         }
+    }
+}
+
+extension HomeView {
+    /// لو فيه شاشة مفتوحة فوق الرئيسية نرجع لها، وإلا نطلع لأعلى الصفحة.
+    fileprivate func popIfNeeded() -> Bool {
+        guard !path.isEmpty else { return false }
+        path = []
+        return true
     }
 }
 
@@ -99,7 +117,7 @@ private struct TopPlayersCard: View {
                         .foregroundStyle(Theme.content)
                         .lineLimit(1)
                     Spacer()
-                    Text(Fmt.n(r.points))
+                    Text(Fmt.compact(r.points))
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(Theme.content)
                 }
@@ -165,13 +183,14 @@ private struct PointsCard: View {
                     Text("رصيدك")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.goldText.opacity(0.65))
-                    Text(Fmt.n(shown ? s.points : 0))
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                    Text(Fmt.compact(shown ? s.points : 0))
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
                         .foregroundStyle(Theme.goldText)
                         .contentTransition(.numericText())
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    Text("نقطة")
+                    // الرقم الكامل تحت المختصر — الرصيد يهم بالحرف
+                    Text(Fmt.n(s.points) + " نقطة")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(Theme.goldText.opacity(0.6))
                 }
@@ -180,8 +199,8 @@ private struct PointsCard: View {
             }
             HStack(spacing: 8) {
                 Pill(title: "الترتيب", value: s.rank.map { "#" + Fmt.n($0) } ?? "—")
-                Pill(title: "اليوم", value: "+" + Fmt.n(s.today))
-                Pill(title: "الأسبوع", value: "+" + Fmt.n(s.myWeek))
+                Pill(title: "اليوم", value: "+" + Fmt.compact(s.today))
+                Pill(title: "الأسبوع", value: "+" + Fmt.compact(s.myWeek))
             }
         }
         .padding(20)
@@ -261,12 +280,12 @@ private struct OwnerStatsCard: View {
                 }
             }
             HStack(spacing: 10) {
-                cell("أعضاء", stats.members.map(Fmt.n) ?? "—")
-                cell("نشطين ٧ أيام", Fmt.n(stats.active7d))
+                cell("أعضاء", stats.members.map(Fmt.compact) ?? "—")
+                cell("نشطين ٧ أيام", Fmt.compact(stats.active7d))
             }
             HStack(spacing: 10) {
-                cell("زوار ٧ أيام", Fmt.n(stats.visits7d))
-                cell("آرك جديد", Fmt.n(stats.arkNew), accent: stats.arkNew > 0)
+                cell("زوار ٧ أيام", Fmt.compact(stats.visits7d))
+                cell("آرك جديد", Fmt.compact(stats.arkNew), accent: stats.arkNew > 0)
             }
         }
         .card()
@@ -300,15 +319,18 @@ private struct QuickGrid: View {
     private var items: [Item] {
         var list: [Item] = [
             Item(id: "shop", title: "المتجر", symbol: "bag.fill", route: .web(path: "/shop", title: "المتجر"), tab: nil),
+            Item(id: "servers", title: "سيرفراتي", symbol: "server.rack", route: .web(path: "/servers", title: "سيرفراتي"), tab: nil),
+            Item(id: "bell", title: "التنبيهات", symbol: "bell.fill", route: .web(path: "/notifications", title: "التنبيهات"), tab: nil),
             Item(id: "souls", title: "Souls", symbol: "book.closed.fill", route: nil, tab: .souls),
             Item(id: "ark", title: "آرك", symbol: "shippingbox.fill", route: .web(path: "/ark", title: "متجر آرك"), tab: nil),
-            Item(id: "bell", title: "التنبيهات", symbol: "bell.fill", route: .web(path: "/notifications", title: "التنبيهات"), tab: nil),
+            Item(id: "sugg", title: "الاقتراحات", symbol: "lightbulb.fill", route: .web(path: "/suggestions", title: "الاقتراحات"), tab: nil),
         ]
         if isOwner {
             list.append(Item(id: "dash", title: "اللوحة", symbol: "square.grid.2x2.fill", route: .dashboardMenu, tab: nil))
-            list.append(Item(id: "arkorders", title: "طلبات آرك", symbol: "tray.full.fill", route: .web(path: "/dashboard/ark", title: "طلبات آرك"), tab: nil))
             list.append(Item(id: "stats", title: "الإحصائيات", symbol: "chart.xyaxis.line", route: .web(path: "/dashboard/stats", title: "الإحصائيات"), tab: nil))
-            list.append(Item(id: "sugg", title: "الاقتراحات", symbol: "lightbulb.fill", route: .web(path: "/suggestions", title: "الاقتراحات"), tab: nil))
+        } else {
+            list.append(Item(id: "bot", title: "أضف البوت", symbol: "plus.app.fill", route: .web(path: "/bot", title: "أضف البوت"), tab: nil))
+            list.append(Item(id: "ads", title: "أعلن معنا", symbol: "megaphone.fill", route: .web(path: "/advertise", title: "أعلن معنا"), tab: nil))
         }
         return list
     }
@@ -367,7 +389,7 @@ private struct WeeklyCard: View {
                         .foregroundStyle(Theme.content)
                         .lineLimit(1)
                     Spacer()
-                    Text("+" + Fmt.n(r.points))
+                    Text("+" + Fmt.compact(r.points))
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(Theme.gold)
                 }
@@ -412,7 +434,7 @@ private struct ActivityCard: View {
                         Text(Fmt.ago(t.at)).font(.caption).foregroundStyle(Theme.muted)
                     }
                     Spacer()
-                    Text((t.amount >= 0 ? "+" : "") + Fmt.n(t.amount))
+                    Text((t.amount >= 0 ? "+" : "") + Fmt.compact(t.amount))
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(t.amount >= 0 ? Color.green : Color.red)
                 }

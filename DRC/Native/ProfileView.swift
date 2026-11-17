@@ -4,9 +4,10 @@ struct ProfileView: View {
     @ObservedObject private var account = AccountStore.shared
     @State private var showLogin = false
     @State private var confirmLogout = false
+    @State private var path: [Route] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if account.loggedIn == false {
                     Section {
@@ -22,9 +23,15 @@ struct ProfileView: View {
                     }
                     Section("حسابي") {
                         row("صفحتي في الموقع", "person.text.rectangle", .web(path: "/profile", title: "صفحتي"))
-                        row("التنبيهات", "bell", .web(path: "/notifications", title: "التنبيهات"))
+                        row("سيرفراتي", "server.rack", .web(path: "/servers", title: "سيرفراتي"))
+                        row("التنبيهات", "bell", .web(path: "/notifications", title: "التنبيهات"), badge: account.unread)
                         row("المتجر", "bag", .web(path: "/shop", title: "المتجر"))
                         row("طلبات آرك", "shippingbox", .web(path: "/ark/orders", title: "طلبات آرك"))
+                    }
+                    Section("المجتمع") {
+                        row("الاقتراحات", "lightbulb", .web(path: "/suggestions", title: "الاقتراحات"))
+                        row("أضف البوت لسيرفرك", "plus.app", .web(path: "/bot", title: "أضف البوت"))
+                        row("أعلن معنا", "megaphone", .web(path: "/advertise", title: "أعلن معنا"))
                     }
                     if account.isOwner {
                         Section("الإدارة") {
@@ -33,6 +40,10 @@ struct ProfileView: View {
                             row("الإحصائيات", "chart.xyaxis.line", .web(path: "/dashboard/stats", title: "الإحصائيات"))
                         }
                     }
+                }
+                Section("عن DRC") {
+                    row("السياسات", "doc.text", .web(path: "/policies", title: "السياسات"))
+                    row("تواصل معنا", "envelope", .web(path: "/contact", title: "تواصل معنا"))
                 }
                 Section("التطبيق") {
                     Button {
@@ -56,6 +67,9 @@ struct ProfileView: View {
             .navigationTitle("حسابي")
             .refreshable { await account.refresh() }
             .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
+            .onReceive(AppRouter.shared.$reselected) { r in
+                if r?.tab == .profile { path = [] }
+            }
             .confirmationDialog("تسجيل الخروج من التطبيق؟", isPresented: $confirmLogout, titleVisibility: .visible) {
                 Button("تسجيل خروج", role: .destructive) {
                     Task { await account.logout() }
@@ -74,10 +88,21 @@ struct ProfileView: View {
         .task { await account.refresh() }
     }
 
-    private func row(_ title: String, _ symbol: String, _ route: Route) -> some View {
+    private func row(_ title: String, _ symbol: String, _ route: Route, badge: Int = 0) -> some View {
         NavigationLink(value: route) {
-            Label(title, systemImage: symbol)
-                .foregroundStyle(Theme.content)
+            HStack {
+                Label(title, systemImage: symbol)
+                    .foregroundStyle(Theme.content)
+                Spacer()
+                if badge > 0 {
+                    Text("\(badge)")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.goldText)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Theme.gold, in: Capsule())
+                }
+            }
         }
         .listRowBackground(Theme.surface)
     }
@@ -98,7 +123,7 @@ private struct ProfileHeader: View {
                 HStack(spacing: 8) {
                     chip("المستوى \(s.level)")
                     if let r = s.rank { chip("#" + Fmt.n(r)) }
-                    chip(Fmt.n(s.points) + " نقطة")
+                    chip(Fmt.compact(s.points) + " نقطة")
                 }
             }
         }

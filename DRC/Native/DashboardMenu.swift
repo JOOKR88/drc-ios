@@ -92,6 +92,9 @@ struct DashboardTab: View {
         NavigationStack(path: $nav.path) {
             DashboardMenu()
                 .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
+                .onReceive(AppRouter.shared.$reselected) { r in
+                    if r?.tab == .dashboard { nav.path = [] }
+                }
         }
     }
 }
@@ -223,9 +226,9 @@ private struct DashHeader: View {
             }
             if let s = stats {
                 HStack(spacing: 8) {
-                    tile("أعضاء", s.members.map(Fmt.n) ?? "—")
-                    tile("نشطين ٧ أيام", Fmt.n(s.active7d))
-                    tile("آرك جديد", Fmt.n(s.arkNew), accent: s.arkNew > 0)
+                    tile("أعضاء", s.members.map(Fmt.compact) ?? "—")
+                    tile("نشطين ٧ أيام", Fmt.compact(s.active7d))
+                    tile("آرك جديد", Fmt.compact(s.arkNew), accent: s.arkNew > 0)
                 }
             }
         }

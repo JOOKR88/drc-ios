@@ -10,6 +10,12 @@ struct SoulsView: View {
 
     private var articles: [ArticleSummary] { store.index?.articles ?? [] }
 
+    private func popIfNeeded() -> Bool {
+        guard !path.isEmpty else { return false }
+        path = NavigationPath()
+        return true
+    }
+
     private var filtered: [ArticleSummary] {
         var list = articles
         if let game { list = list.filter { $0.game == game } }
@@ -30,8 +36,10 @@ struct SoulsView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    Color.clear.frame(height: 0).id("top")
                     if store.index == nil {
                         Skeleton(height: 240, radius: 26)
                         ForEach(0..<5, id: \.self) { _ in Skeleton(height: 76, radius: 18) }
@@ -47,6 +55,7 @@ struct SoulsView: View {
                                     ForEach(latest) { a in
                                         NavigationLink(value: Route.article(slug: a.slug)) { SmallCard(a: a) }
                                             .buttonStyle(PressableStyle())
+                                            .contextMenu { ArticleMenu(slug: a.slug) }
                                     }
                                 }
                             }
@@ -57,6 +66,7 @@ struct SoulsView: View {
                             ForEach(query.isEmpty && game == nil ? Array(articles.prefix(30)) : filtered) { a in
                                 NavigationLink(value: Route.article(slug: a.slug)) { ArticleRow(a: a) }
                                     .buttonStyle(PressableStyle())
+                                    .contextMenu { ArticleMenu(slug: a.slug) }
                             }
                             if (game != nil || !query.isEmpty) && filtered.isEmpty {
                                 Text("ما فيه مقالات مطابقة.")
@@ -83,6 +93,12 @@ struct SoulsView: View {
                 await store.loadIndex()
             }
             .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
+                .onReceive(AppRouter.shared.$reselected) { r in
+                    guard let r, r.tab == .souls else { return }
+                    if popIfNeeded() { return }
+                    withAnimation(.snappy) { proxy.scrollTo("top", anchor: .top) }
+                }
+            }
         }
     }
 }
@@ -203,7 +219,7 @@ private struct ArticleRow: View {
                     .multilineTextAlignment(.leading)
                 HStack(spacing: 8) {
                     GameBadge(key: a.game)
-                    Label(Fmt.n(a.views), systemImage: "eye")
+                    Label(Fmt.compact(a.views), systemImage: "eye")
                         .font(.caption2)
                         .foregroundStyle(Theme.muted)
                 }
@@ -213,5 +229,22 @@ private struct ArticleRow: View {
         .padding(10)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.edge.opacity(0.7), lineWidth: 1))
+    }
+}
+
+/// ضغطة مطوّلة على مقال: مشاركة ونسخ الرابط.
+private struct ArticleMenu: View {
+    let slug: String
+
+    var body: some View {
+        if let url = URL(string: AppConfig.base + "/souls/" + slug) {
+            ShareLink(item: url) { Label("مشاركة المقال", systemImage: "square.and.arrow.up") }
+            Button {
+                UIPasteboard.general.url = url
+                Haptic.tap()
+            } label: {
+                Label("نسخ الرابط", systemImage: "link")
+            }
+        }
     }
 }

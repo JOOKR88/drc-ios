@@ -7,6 +7,7 @@ struct LeaderboardView: View {
     @State private var results: [LbRow]?
     @State private var searching = false
     @State private var searchTask: Task<Void, Never>?
+    @State private var path: [Route] = []
 
     private let boards: [(String, String)] = [("xp", "XP"), ("rich", "الأغنى"), ("rep", "السمعة"), ("week", "الأسبوعي")]
 
@@ -20,7 +21,8 @@ struct LeaderboardView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
+            ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 10) {
                     Picker("اللوحة", selection: $board) {
@@ -28,6 +30,7 @@ struct LeaderboardView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding(.bottom, 6)
+                    .id("top")
 
                     if let results {
                         if searching && results.isEmpty {
@@ -73,7 +76,19 @@ struct LeaderboardView: View {
                 }
             }
             .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
+                .onReceive(AppRouter.shared.$reselected) { r in
+                    guard let r, r.tab == .leaderboard else { return }
+                    if popIfNeeded() { return }
+                    withAnimation(.snappy) { proxy.scrollTo("top", anchor: .top) }
+                }
+            }
         }
+    }
+
+    private func popIfNeeded() -> Bool {
+        guard !path.isEmpty else { return false }
+        path = []
+        return true
     }
 
     @ViewBuilder
@@ -81,6 +96,17 @@ struct LeaderboardView: View {
         if let id = row.userId {
             NavigationLink(value: Route.web(path: "/u/" + id, title: row.name)) { content() }
                 .buttonStyle(PressableStyle())
+                .contextMenu {
+                    if let url = URL(string: AppConfig.base + "/u/" + id) {
+                        ShareLink(item: url) { Label("مشاركة بروفايله", systemImage: "square.and.arrow.up") }
+                    }
+                    Button {
+                        UIPasteboard.general.string = id
+                        Haptic.tap()
+                    } label: {
+                        Label("نسخ الـID", systemImage: "doc.on.doc")
+                    }
+                }
         } else {
             content()
         }
@@ -136,14 +162,14 @@ private struct LbRowView: View {
                     }
                 }
                 if let total = row.total {
-                    Text("رصيد " + Fmt.n(total))
+                    Text("رصيد " + Fmt.compact(total))
                         .font(.caption)
                         .foregroundStyle(Theme.muted)
                 }
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 0) {
-                Text(Fmt.n(row.points))
+                Text(Fmt.compact(row.points))
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.content)
                 Text(unit).font(.caption2).foregroundStyle(Theme.muted)
@@ -206,7 +232,7 @@ private struct Podium: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.content)
                 .lineLimit(1)
-            Text(Fmt.n(r.points))
+            Text(Fmt.compact(r.points))
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(color)
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -246,7 +272,7 @@ private struct MyRankBar: View {
                 Text("المستوى \(me.level)")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.content)
-                Text(Fmt.n(me.xp) + " XP")
+                Text(Fmt.compact(me.xp) + " XP")
                     .font(.caption)
                     .foregroundStyle(Theme.muted)
             }

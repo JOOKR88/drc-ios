@@ -87,6 +87,21 @@ enum Fmt {
 
     static func n(_ v: Int) -> String { number.string(from: NSNumber(value: v)) ?? "\(v)" }
 
+    /// الأرقام الكبيرة مختصرة: من ١٠ آلاف وفوق ⇐ 17.6K · 251K · 1.2M (طلب الأونر). ما تحتها كامل بفواصل.
+    static func compact(_ v: Int) -> String {
+        let a = abs(v)
+        let sign = v < 0 ? "-" : ""
+        func fmt(_ x: Double, _ suffix: String) -> String {
+            var s = x >= 100 ? String(format: "%.0f", x) : String(format: "%.1f", x)
+            if s.hasSuffix(".0") { s.removeLast(2) }
+            return sign + s + suffix
+        }
+        if a >= 1_000_000_000 { return fmt(Double(a) / 1e9, "B") }
+        if a >= 1_000_000 { return fmt(Double(a) / 1e6, "M") }
+        if a >= 10_000 { return fmt(Double(a) / 1e3, "K") }
+        return n(v)
+    }
+
     static func date(_ iso: String) -> Date? {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

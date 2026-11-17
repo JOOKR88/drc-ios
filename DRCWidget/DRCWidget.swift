@@ -74,10 +74,12 @@ private enum W {
         let f = NumberFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.numberStyle = .decimal
-        if n >= 10_000 {
-            f.maximumFractionDigits = 1
-            return (f.string(from: NSNumber(value: Double(n) / 1000)) ?? "\(n)") + "K"
+        func short(_ x: Double, _ suffix: String) -> String {
+            f.maximumFractionDigits = x >= 100 ? 0 : 1
+            return (f.string(from: NSNumber(value: x)) ?? "\(n)") + suffix
         }
+        if n >= 1_000_000 { return short(Double(n) / 1_000_000, "M") }
+        if n >= 10_000 { return short(Double(n) / 1000, "K") }
         return f.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 }

@@ -13,12 +13,13 @@ struct ArticleView: View {
     @State private var pushed: Route?
     @State private var showPushed = false
     @State private var counted = false
+    @AppStorage(SettingKey.readerSize) private var readerSize = 17
 
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             if let a = article {
-                ReaderView(article: a, onImage: { zoom = IdentifiableURL(url: $0) }, onLink: handle)
+                ReaderView(article: a, fontSize: readerSize, onImage: { zoom = IdentifiableURL(url: $0) }, onLink: handle)
                     .ignoresSafeArea(edges: [.top, .bottom])
                     .transition(.opacity)
             } else if failed {
@@ -34,6 +35,18 @@ struct ArticleView: View {
                 ToolbarItem(placement: .primaryAction) {
                     ShareLink(item: url) {
                         Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Picker("حجم الخط", selection: $readerSize) {
+                            Text("صغير").tag(15)
+                            Text("عادي").tag(17)
+                            Text("كبير").tag(19)
+                            Text("أكبر").tag(22)
+                        }
+                    } label: {
+                        Image(systemName: "textformat.size")
                     }
                 }
             }
@@ -80,6 +93,7 @@ struct ArticleView: View {
 
 struct ReaderView: UIViewRepresentable {
     let article: Article
+    var fontSize: Int = 17
     var onImage: (URL) -> Void
     var onLink: (URL) -> Void
 
@@ -98,7 +112,8 @@ struct ReaderView: UIViewRepresentable {
         wv.navigationDelegate = context.coordinator
         wv.allowsLinkPreview = false
         context.coordinator.loadedID = article.id + article.updatedAt
-        wv.loadHTMLString(ReaderTemplate.html(article), baseURL: URL(string: AppConfig.base))
+        context.coordinator.fontSize = fontSize
+        wv.loadHTMLString(ReaderTemplate.html(article, fontSize: fontSize), baseURL: URL(string: AppConfig.base))
         return wv
     }
 
@@ -107,7 +122,12 @@ struct ReaderView: UIViewRepresentable {
         let key = article.id + article.updatedAt
         if context.coordinator.loadedID != key {
             context.coordinator.loadedID = key
-            wv.loadHTMLString(ReaderTemplate.html(article), baseURL: URL(string: AppConfig.base))
+            context.coordinator.fontSize = fontSize
+            wv.loadHTMLString(ReaderTemplate.html(article, fontSize: fontSize), baseURL: URL(string: AppConfig.base))
+        } else if context.coordinator.fontSize != fontSize {
+            // تغيير حجم الخط بدون إعادة تحميل (يحافظ على مكان القراءة)
+            context.coordinator.fontSize = fontSize
+            wv.evaluateJavaScript("document.body.style.fontSize='\(fontSize)px'")
         }
     }
 
@@ -115,6 +135,7 @@ struct ReaderView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: ReaderView
         var loadedID = ""
+        var fontSize = 17
 
         init(_ parent: ReaderView) { self.parent = parent }
 
@@ -148,7 +169,7 @@ enum ReaderTemplate {
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
-    static func html(_ a: Article) -> String {
+    static func html(_ a: Article, fontSize: Int = 17) -> String {
         let hero = Fmt.absolute(a.image).map { "<div class=\"hero\" style=\"background-image:url('\(esc($0.absoluteString))')\"></div>" } ?? ""
         let author: String = {
             guard let name = a.author.name, !name.isEmpty else { return "" }
@@ -156,13 +177,13 @@ enum ReaderTemplate {
             return "<span class=\"author\">\(img)\(esc(name))</span><span>·</span>"
         }()
         let tags = a.tags.map { "<span>#\(esc($0))</span>" }.joined()
-        let views = Fmt.n(a.views)
+        let views = Fmt.compact(a.views)
         return """
         <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
         <style>
         :root{color-scheme:dark}
-        html,body{margin:0;background:#0B0A09;color:#E6E0D7;font:17px/1.9 -apple-system,"SF Arabic",system-ui,sans-serif;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+        html,body{margin:0;background:#0B0A09;color:#E6E0D7;font:\(fontSize)px/1.9 -apple-system,"SF Arabic",system-ui,sans-serif;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
         .hero{height:58vh;min-height:320px;background:#141210 center/cover no-repeat;position:relative}
         .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,10,9,.55) 0%,rgba(11,10,9,0) 28%,rgba(11,10,9,.55) 68%,#0B0A09 100%)}
         .head{position:relative;z-index:2;padding:0 20px}

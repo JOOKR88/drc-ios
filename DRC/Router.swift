@@ -10,6 +10,9 @@ final class AppRouter: ObservableObject {
     /// مسار في الموقع (مثل /dashboard/ark) أو `settings` لشاشة إعدادات التطبيق.
     @Published var pending: String?
 
+    /// الضغط على التبويب المفتوح نفسه (سلوك iOS): الشاشة ترجع لأولها وتطلع لفوق.
+    @Published var reselected: (tab: AppTab, at: Date)?
+
     func handle(_ item: UIApplicationShortcutItem) {
         if let path = item.userInfo?["path"] as? String {
             pending = path

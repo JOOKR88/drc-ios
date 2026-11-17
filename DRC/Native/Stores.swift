@@ -9,6 +9,8 @@ final class AccountStore: ObservableObject {
     @Published private(set) var user: SessionInfo.User?
     @Published private(set) var summary: MeSummary?
     @Published private(set) var ownerStats: WidgetStats?
+    /// تنبيهات الموقع غير المقروءة — عدّاد على تبويب «حسابي».
+    @Published private(set) var unread = 0
     /// nil = لسه ما نعرف (أول تشغيل بلا نت)
     @Published private(set) var loggedIn: Bool?
 
@@ -40,6 +42,7 @@ final class AccountStore: ObservableObject {
                 withAnimation(.snappy) { summary = m }
                 DiskCache.write("me", md)
             }
+            await refreshUnread()
             await WidgetBridge.refreshTokenIfNeeded()
             await loadOwnerStats()
         } catch APIError.unauthorized {
@@ -47,6 +50,13 @@ final class AccountStore: ObservableObject {
         } catch {
             // بلا نت: نبقي آخر نسخة
         }
+    }
+
+    func refreshUnread() async {
+        guard loggedIn == true,
+              let d = try? await API.get("/api/notifications?summary=1"),
+              let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+        unread = (obj["unread"] as? Int) ?? 0
     }
 
     private func loadOwnerStats() async {
@@ -62,6 +72,7 @@ final class AccountStore: ObservableObject {
         user = nil
         summary = nil
         ownerStats = nil
+        unread = 0
         loggedIn = false
         DiskCache.remove("session")
         DiskCache.remove("me")

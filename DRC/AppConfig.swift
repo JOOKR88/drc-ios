@@ -88,6 +88,7 @@ enum SettingKey {
     static let lockScope = "lockScope"
     static let lockGrace = "lockGrace"
     static let webZoom = "webZoom"
+    static let readerSize = "readerSize"
 }
 
 enum LockScope: String {

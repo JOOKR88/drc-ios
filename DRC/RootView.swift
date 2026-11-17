@@ -5,6 +5,7 @@ struct RootView: View {
     @StateObject private var store = WebStore()
     @StateObject private var lock = LockManager()
     @ObservedObject private var router = AppRouter.shared
+    @ObservedObject private var account = AccountStore.shared
     @State private var selection: AppTab = RootView.initialTab()
     @State private var showSplash = true
     @State private var showSettings = false
@@ -35,6 +36,7 @@ struct RootView: View {
                 ForEach(tabs) { tab in
                     tabContent(tab)
                         .tabItem { Label(tab.title, systemImage: tab.symbol) }
+                        .badge(tab == .profile ? account.unread : 0)
                         .tag(tab)
                 }
             }
@@ -98,7 +100,9 @@ struct RootView: View {
         .onChange(of: scenePhase) { phase in
             switch phase {
             case .background: lock.didEnterBackground()
-            case .active: lock.didBecomeActive(grace: lockGrace)
+            case .active:
+                lock.didBecomeActive(grace: lockGrace)
+                Task { await account.refreshUnread() }
             default: break
             }
         }
@@ -127,7 +131,11 @@ struct RootView: View {
             get: { selection },
             set: { newValue in
                 if newValue == selection {
-                    if !newValue.isNative { store.controller(for: newValue).popToRootOrTop() }
+                    if newValue.isNative {
+                        router.reselected = (newValue, Date())
+                    } else {
+                        store.controller(for: newValue).popToRootOrTop()
+                    }
                 } else {
                     UISelectionFeedbackGenerator().selectionChanged()
                     selection = newValue
