@@ -133,7 +133,8 @@ struct DashboardMenu: View {
                 ForEach(groups) { g in
                     Section {
                         ForEach(g.items) { item in
-                            NavigationLink(value: Route.web(path: item.path, title: item.title)) {
+                            // الإحصائيات شاشة أصلية برسوم iOS، والباقي صفحات الموقع
+                            NavigationLink(value: item.path == "/dashboard/stats" ? Route.stats : Route.web(path: item.path, title: item.title)) {
                                 DashRow(item: item, color: g.color, badge: badge(for: item))
                             }
                             .listRowBackground(Theme.surface)

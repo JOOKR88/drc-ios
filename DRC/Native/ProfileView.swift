@@ -37,7 +37,7 @@ struct ProfileView: View {
                         Section("الإدارة") {
                             row("لوحة التحكم", "square.grid.2x2", .dashboardMenu)
                             row("طلبات آرك (اللوحة)", "tray.full", .web(path: "/dashboard/ark", title: "طلبات آرك"))
-                            row("الإحصائيات", "chart.xyaxis.line", .web(path: "/dashboard/stats", title: "الإحصائيات"))
+                            row("الإحصائيات", "chart.xyaxis.line", .stats)
                         }
                     }
                 }

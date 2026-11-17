@@ -327,7 +327,7 @@ private struct QuickGrid: View {
         ]
         if isOwner {
             list.append(Item(id: "dash", title: "اللوحة", symbol: "square.grid.2x2.fill", route: .dashboardMenu, tab: nil))
-            list.append(Item(id: "stats", title: "الإحصائيات", symbol: "chart.xyaxis.line", route: .web(path: "/dashboard/stats", title: "الإحصائيات"), tab: nil))
+            list.append(Item(id: "stats", title: "الإحصائيات", symbol: "chart.xyaxis.line", route: .stats, tab: nil))
         } else {
             list.append(Item(id: "bot", title: "أضف البوت", symbol: "plus.app.fill", route: .web(path: "/bot", title: "أضف البوت"), tab: nil))
             list.append(Item(id: "ads", title: "أعلن معنا", symbol: "megaphone.fill", route: .web(path: "/advertise", title: "أعلن معنا"), tab: nil))

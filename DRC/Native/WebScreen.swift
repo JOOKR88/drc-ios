@@ -5,6 +5,7 @@ enum Route: Hashable {
     case web(path: String, title: String)
     case article(slug: String)
     case dashboardMenu
+    case stats
 }
 
 struct RouteDestination: View {
@@ -18,6 +19,8 @@ struct RouteDestination: View {
             ArticleView(slug: slug)
         case .dashboardMenu:
             DashboardMenu()
+        case .stats:
+            StatsView()
         }
     }
 }
