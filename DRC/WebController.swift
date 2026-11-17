@@ -30,7 +30,7 @@ final class WebController: NSObject, ObservableObject {
     private let refresh = UIRefreshControl()
 
     convenience init(tab: AppTab) {
-        self.init(startURL: startURL, rootPath: rootPath)
+        self.init(startURL: tab.url, rootPath: tab.path)
     }
 
     /// `hideAppChrome`: صفحة موقع داخل شاشة أصلية (فوقها شريط تنقّل iOS)، فنخفي رأس الموقع داخل التطبيق
