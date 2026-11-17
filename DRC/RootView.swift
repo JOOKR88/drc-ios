@@ -70,6 +70,9 @@ struct RootView: View {
         .onReceive(store.controller(for: RootView.initialTab()).$firstLoadDone) { done in
             if done { hideSplash() }
         }
+        .onOpenURL { url in
+            router.handle(appURL: url)
+        }
         .onReceive(router.$pending) { route in
             guard let route else { return }
             router.pending = nil

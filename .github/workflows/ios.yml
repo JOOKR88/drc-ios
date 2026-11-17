@@ -41,6 +41,13 @@ jobs:
           test -d build/Build/Products/Release-iphoneos/DRC.app
           mkdir -p out/Payload
           cp -R build/Build/Products/Release-iphoneos/DRC.app out/Payload/
+          # توقيع مؤقت (ad-hoc) يحمل الصلاحيات فقط: SideStore يقرأ منه إن التطبيق والودجت يحتاجون
+          # App Group فيسجّلها بحساب Apple ويوقّع التوقيع الحقيقي. بدون هذا يوصله الودجت بلا مخزن مشترك.
+          A=out/Payload/DRC.app
+          codesign -f -s - --entitlements Entitlements/DRCWidget.entitlements "$A/PlugIns/DRCWidget.appex"
+          codesign -f -s - --entitlements Entitlements/DRC.entitlements "$A"
+          codesign -d --entitlements - "$A" 2>&1 | grep -A3 "application-groups" || true
+          ls "$A/PlugIns"
           (cd out && zip -qry DRC.ipa Payload)
           ls -lh out/DRC.ipa
 

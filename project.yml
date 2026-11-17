@@ -17,6 +17,10 @@ targets:
     platform: iOS
     sources:
       - path: DRC
+      - path: Shared
+    dependencies:
+      # الودجت يندمج داخل التطبيق (PlugIns/DRCWidget.appex)
+      - target: DRCWidget
     info:
       path: DRC/Info.plist
       properties:
@@ -38,6 +42,10 @@ targets:
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        # drc-app:// — زر الإعدادات في رأس الموقع، والضغط على الودجت
+        CFBundleURLTypes:
+          - CFBundleURLName: org.dreamerc.app
+            CFBundleURLSchemes: [drc-app]
         NSCameraUsageDescription: "لرفع صورة من الكاميرا في الموقع (مثل لقطات السيرفر أو صورة الحساب)."
         NSPhotoLibraryUsageDescription: "لاختيار صورة من الألبوم ورفعها في الموقع."
         NSPhotoLibraryAddUsageDescription: "لحفظ الصور من الموقع في الألبوم."
@@ -53,3 +61,29 @@ targets:
         ENABLE_PREVIEWS: NO
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Manual
+        CODE_SIGN_ENTITLEMENTS: Entitlements/DRC.entitlements
+
+  DRCWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DRCWidget
+      - path: Shared
+    info:
+      path: DRCWidget/Info.plist
+      properties:
+        CFBundleDisplayName: DRC
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.dreamerc.app.widget
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: DRCWidget/Info.plist
+        SKIP_INSTALL: YES
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_ENTITLEMENTS: Entitlements/DRCWidget.entitlements

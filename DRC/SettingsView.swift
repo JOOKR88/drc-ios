@@ -48,9 +48,19 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    LabeledContent("الحالة", value: WidgetBridge.isLinked ? "مربوط بحسابك" : "سجّل دخول بحساب الأونر")
+                    Button("تحديث الودجت الآن") { WidgetBridge.reload() }
+                } header: {
+                    Text("الودجت")
+                } footer: {
+                    Text("أضفه من الشاشة الرئيسية: ضغطة مطوّلة ← تعديل ← إضافة ودجت ← DRC. تقدر تشيله بنفس الطريقة.")
+                }
+
+                Section {
                     LabeledContent("الإصدار", value: version)
                 }
             }
+            .tint(Theme.gold)
             .navigationTitle("إعدادات التطبيق")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

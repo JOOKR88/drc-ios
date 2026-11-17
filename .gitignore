@@ -6,3 +6,4 @@ shots/
 *.ipa
 .DS_Store
 DRC/Info.plist
+DRCWidget/Info.plist

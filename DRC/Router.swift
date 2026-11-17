@@ -18,8 +18,14 @@ final class AppRouter: ObservableObject {
 
     /// روابط `drc-app://settings` من رأس الموقع داخل التطبيق.
     func handle(appURL url: URL) {
-        if url.host == "settings" {
+        switch url.host {
+        case "settings":
             pending = AppRouter.settingsRoute
+        case "open":
+            // drc-app://open/dashboard — الضغط على الودجت
+            pending = url.path.isEmpty ? "/" : url.path
+        default:
+            break
         }
     }
 

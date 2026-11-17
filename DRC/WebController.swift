@@ -194,6 +194,7 @@ extension WebController: WKNavigationDelegate {
         refresh.endRefreshing()
         failed = false
         firstLoadDone = true
+        WidgetBridge.refreshTokenIfNeeded(using: webView)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
