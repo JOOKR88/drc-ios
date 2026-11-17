@@ -78,6 +78,8 @@ final class StatsStore: ObservableObject {
     static let shared = StatsStore()
     @Published private(set) var data: [Int: StatsResponse] = [:]
     @Published private(set) var denied = false
+    /// الرد وصل لكن ما انقرأ (تغيّر شكل البيانات في الموقع) — نعرض رسالة وزر الصفحة الكاملة بدل هيكل تحميل للأبد
+    @Published private(set) var unreadable = false
     private var loadedAt: [Int: Date] = [:]
 
     private init() {
@@ -90,9 +92,13 @@ final class StatsStore: ObservableObject {
         if !force, let at = loadedAt[period], Date().timeIntervalSince(at) < 60 { return }
         do {
             let d = try await API.get("/api/app/stats?d=\(period)")
-            let r = try JSONDecoder().decode(StatsResponse.self, from: d)
+            guard let r = try? JSONDecoder().decode(StatsResponse.self, from: d) else {
+                unreadable = true
+                return
+            }
             withAnimation(.snappy) { data[period] = r }
             denied = false
+            unreadable = false
             loadedAt[period] = Date()
             DiskCache.write("stats-\(period)", d)
         } catch APIError.unauthorized {
@@ -138,6 +144,20 @@ struct StatsView: View {
                         Text("الإحصائيات للأونر ومن عنده صلاحيتها. سجّل دخول بحسابك.")
                             .foregroundStyle(Theme.muted)
                             .padding(.top, 30)
+                    } else if store.unreadable {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("تعذّر عرض الإحصائيات هنا — افتح الصفحة الكاملة.")
+                                .foregroundStyle(Theme.muted)
+                            NavigationLink(value: Route.web(path: "/dashboard/stats?d=\(period)", title: "الإحصائيات")) {
+                                Label("الإحصائيات في الموقع", systemImage: "safari")
+                                    .font(.headline)
+                                    .foregroundStyle(Theme.goldText)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 11)
+                                    .background(Theme.champagne, in: Capsule())
+                            }
+                        }
+                        .padding(.top, 20)
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                             ForEach(0..<6, id: \.self) { _ in Skeleton(height: 96, radius: 18) }
