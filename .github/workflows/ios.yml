@@ -118,6 +118,29 @@ jobs:
           xcrun simctl terminate "$UDID" org.dreamerc.app || true
           ls -lh shots
 
+      # لو التطبيق طاح على المحاكي: نطبع تقرير العطل (أول سطور الخيط اللي طاح) في السجل
+      - name: Crash reports
+        if: always()
+        run: |
+          ls ~/Library/Logs/DiagnosticReports/ 2>/dev/null | grep -i drc || echo "no DRC crash reports"
+          for f in ~/Library/Logs/DiagnosticReports/DRC*; do
+            [ -f "$f" ] || continue
+            echo "=== $f"
+            python3 - "$f" <<'PY' || head -c 6000 "$f"
+          import json, sys
+          raw = open(sys.argv[1]).read()
+          head, _, body = raw.partition("\n")
+          d = json.loads(body)
+          print("exception:", d.get("exception"), d.get("termination", {}).get("indicator"))
+          for t in d.get("threads", []):
+              if t.get("triggered"):
+                  imgs = d.get("usedImages", [])
+                  for fr in t.get("frames", [])[:25]:
+                      name = imgs[fr["imageIndex"]].get("name", "?") if fr.get("imageIndex") is not None and fr["imageIndex"] < len(imgs) else "?"
+                      print(name, fr.get("symbol", ""), fr.get("sourceFile", ""), fr.get("sourceLine", ""))
+          PY
+          done
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
