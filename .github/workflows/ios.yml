@@ -35,7 +35,7 @@ jobs:
           set -o pipefail
           xcodebuild -project DRC.xcodeproj -scheme DRC -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            MARKETING_VERSION=1.0.${{ github.run_number }} CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build 2>&1 | tee build.log | grep -E "error:|warning:.*(nearly matches|DRC/)|BUILD (SUCCEEDED|FAILED)" || true
           test -d build/Build/Products/Release-iphoneos/DRC.app
@@ -81,6 +81,10 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 || true
           xcrun simctl install "$UDID" "$APP"
+          # أول تشغيل بعد الإقلاع بارد (WebKit والشبكة) — تسخين قبل التصوير
+          xcrun simctl launch "$UDID" org.dreamerc.app -tab home
+          sleep 25
+          xcrun simctl terminate "$UDID" org.dreamerc.app || true
           mkdir -p shots
           for t in home leaderboard shop souls profile; do
             xcrun simctl launch "$UDID" org.dreamerc.app -tab "$t"
@@ -106,4 +110,41 @@ jobs:
         run: |
           gh release view latest >/dev/null 2>&1 || \
             gh release create latest --prerelease --title "DRC iOS (latest)" --notes "Unsigned build — install with SideStore."
-          gh release upload latest out/DRC.ipa --clobber
+          V=1.0.${{ github.run_number }}
+          SIZE=$(stat -f%z out/DRC.ipa)
+          RAW=https://raw.githubusercontent.com/${{ github.repository }}/main
+          DL=https://github.com/${{ github.repository }}/releases/download/latest
+          # مصدر SideStore: يضيفه الأونر مرة، وكل بناء جديد يطلع له «تحديث» في SideStore
+          V="$V" SIZE="$SIZE" RAW="$RAW" DL="$DL" BUILD="${{ github.run_number }}" python3 - > out/source.json <<'PY'
+          import json, os, datetime
+          v, size, raw, dl, build = (os.environ[k] for k in ("V", "SIZE", "RAW", "DL", "BUILD"))
+          icon = raw + "/DRC/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+          now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          desc = "تطبيق Dreamer Community للآيفون."
+          app = {
+              "name": "DRC",
+              "bundleIdentifier": "org.dreamerc.app",
+              "developerName": "Dreamer Community",
+              "subtitle": "Dreamer Community",
+              "localizedDescription": desc,
+              "iconURL": icon,
+              "tintColor": "#CCBFAE",
+              "version": v, "versionDate": now, "downloadURL": dl + "/DRC.ipa", "size": int(size),
+              "versions": [{
+                  "version": v, "buildVersion": build, "date": now,
+                  "localizedDescription": "بناء " + build,
+                  "downloadURL": dl + "/DRC.ipa", "size": int(size), "minOSVersion": "16.0",
+              }],
+              "appPermissions": {"entitlements": [], "privacy": {
+                  "NSCameraUsageDescription": "رفع صورة من الكاميرا في الموقع.",
+                  "NSPhotoLibraryUsageDescription": "اختيار صورة من الألبوم ورفعها في الموقع.",
+              }},
+          }
+          print(json.dumps({
+              "name": "DRC", "identifier": "org.dreamerc.source",
+              "sourceURL": dl + "/source.json", "iconURL": icon, "tintColor": "#CCBFAE",
+              "apps": [app], "news": [],
+          }, ensure_ascii=False, indent=2))
+          PY
+          cat out/source.json | head -5
+          gh release upload latest out/DRC.ipa out/source.json --clobber
