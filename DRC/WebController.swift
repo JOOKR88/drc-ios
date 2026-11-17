@@ -19,6 +19,8 @@ final class WebController: NSObject, ObservableObject {
     @Published var failed = false
     @Published var firstLoadDone = false
     @Published var externalURL: IdentifiableURL?
+    /// مسار الصفحة الحالية — يتحدّث حتى مع تنقّل الموقع الداخلي (pushState)، وعليه يعتمد قفل اللوحة.
+    @Published var path: String = ""
 
     private var observers: [NSKeyValueObservation] = []
     private let refresh = UIRefreshControl()
@@ -84,6 +86,10 @@ final class WebController: NSObject, ObservableObject {
             let value = wv.estimatedProgress
             Task { @MainActor in self?.progress = value }
         })
+        observers.append(webView.observe(\.url, options: [.new]) { [weak self] wv, _ in
+            let value = wv.url?.path ?? ""
+            Task { @MainActor in self?.path = value }
+        })
         observers.append(webView.observe(\.isLoading, options: [.new]) { [weak self] wv, _ in
             let value = wv.isLoading
             Task { @MainActor in self?.isLoading = value }
@@ -94,6 +100,13 @@ final class WebController: NSObject, ObservableObject {
     func loadIfNeeded() {
         guard webView.url == nil, !webView.isLoading else { return }
         webView.load(URLRequest(url: tab.url))
+    }
+
+    /// يفتح مسار في الموقع داخل هذا التبويب (اختصارات الأيقونة).
+    func open(path: String) {
+        guard let url = URL(string: AppConfig.base + path) else { return }
+        failed = false
+        webView.load(URLRequest(url: url))
     }
 
     func retry() {
@@ -154,6 +167,12 @@ extension WebController: WKNavigationDelegate {
         }
         if ["about", "blob", "data"].contains(scheme) {
             decisionHandler(.allow)
+            return
+        }
+        if scheme == "drc-app" {
+            // أيقونة «إعدادات التطبيق» في رأس الموقع
+            AppRouter.shared.handle(appURL: url)
+            decisionHandler(.cancel)
             return
         }
         if scheme != "http" && scheme != "https" {

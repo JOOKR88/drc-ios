@@ -23,7 +23,7 @@ enum AppConfig {
 }
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case home, leaderboard, shop, souls, profile
+    case home, leaderboard, shop, souls, dashboard, profile
 
     var id: String { rawValue }
 
@@ -33,6 +33,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .leaderboard: return "/leaderboard"
         case .shop: return "/shop"
         case .souls: return "/souls"
+        case .dashboard: return "/dashboard"
         case .profile: return "/profile"
         }
     }
@@ -44,6 +45,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .leaderboard: return "المتصدرون"
         case .shop: return "المتجر"
         case .souls: return "Souls"
+        case .dashboard: return "اللوحة"
         case .profile: return "حسابي"
         }
     }
@@ -54,9 +56,31 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .leaderboard: return "chart.bar.fill"
         case .shop: return "bag.fill"
         case .souls: return "book.closed.fill"
+        case .dashboard: return "square.grid.2x2.fill"
         case .profile: return "person.crop.circle.fill"
         }
     }
 
     var url: URL { URL(string: AppConfig.base + path)! }
+
+    /// الشريط يعرض ٥ تبويبات بحد أقصى (السادس يصير «المزيد» ويخرّب الشكل)،
+    /// فاللوحة لما تتفعّل تاخذ مكان Souls — وSouls يبقى من الرئيسية.
+    static func visible(dashboard: Bool) -> [AppTab] {
+        dashboard
+            ? [.home, .leaderboard, .shop, .dashboard, .profile]
+            : [.home, .leaderboard, .shop, .souls, .profile]
+    }
+}
+
+/// مفاتيح إعدادات التطبيق (UserDefaults) — كل ميزة إضافية تنطفي وتشتغل من «إعدادات التطبيق».
+enum SettingKey {
+    static let dashboardTab = "dashboardTab"
+    static let quickActions = "quickActions"
+    static let lockEnabled = "lockEnabled"
+    static let lockScope = "lockScope"
+    static let lockGrace = "lockGrace"
+}
+
+enum LockScope: String {
+    case app, dashboard
 }

@@ -3,8 +3,18 @@ import UIKit
 
 struct RootView: View {
     @StateObject private var store = WebStore()
+    @StateObject private var lock = LockManager()
+    @ObservedObject private var router = AppRouter.shared
     @State private var selection: AppTab = RootView.initialTab()
     @State private var showSplash = true
+    @State private var showSettings = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    @AppStorage(SettingKey.dashboardTab) private var dashboardTab = true
+    @AppStorage(SettingKey.quickActions) private var quickActions = true
+    @AppStorage(SettingKey.lockEnabled) private var lockEnabled = false
+    @AppStorage(SettingKey.lockScope) private var lockScope = LockScope.dashboard.rawValue
+    @AppStorage(SettingKey.lockGrace) private var lockGrace = 60
 
     /// لقطات الشاشة الآلية على GitHub تشغّل التطبيق بـ`-tab shop` مثلاً لتصوير كل تبويب.
     static func initialTab() -> AppTab {
@@ -14,27 +24,78 @@ struct RootView: View {
         return .home
     }
 
+    private var tabs: [AppTab] { AppTab.visible(dashboard: dashboardTab) }
+    private var appLocked: Bool { lockEnabled && lockScope == LockScope.app.rawValue && !lock.unlocked }
+    private var dashboardLockOn: Bool { lockEnabled && lockScope == LockScope.dashboard.rawValue }
+
     var body: some View {
         ZStack {
             TabView(selection: tabSelection) {
-                ForEach(AppTab.allCases) { tab in
-                    WebTabView(controller: store.controller(for: tab))
-                        .tabItem { Label(tab.title, systemImage: tab.symbol) }
-                        .tag(tab)
+                ForEach(tabs) { tab in
+                    WebTabView(
+                        controller: store.controller(for: tab),
+                        dashboardLock: dashboardLockOn,
+                        lock: lock
+                    )
+                    .tabItem { Label(tab.title, systemImage: tab.symbol) }
+                    .tag(tab)
                 }
             }
+
+            if appLocked {
+                LockView(title: "التطبيق مقفول") { unlock() }
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+
+            // يخفي المحتوى في شاشة تبديل التطبيقات لما يكون القفل مفعّل
+            if lockEnabled && scenePhase != .active {
+                PrivacyCover().zIndex(2)
+            }
+
             if showSplash {
                 SplashView()
                     .transition(.opacity)
-                    .zIndex(1)
+                    .zIndex(3)
             }
         }
         // العربي أولاً: التبويبات تبدأ من اليمين مثل الموقع
         .environment(\.layoutDirection, .rightToLeft)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(lock)
+                .environment(\.layoutDirection, .rightToLeft)
+                .preferredColorScheme(.dark)
+        }
         .onReceive(store.controller(for: RootView.initialTab()).$firstLoadDone) { done in
             if done { hideSplash() }
         }
+        .onReceive(router.$pending) { route in
+            guard let route else { return }
+            router.pending = nil
+            open(route)
+        }
+        .onChange(of: dashboardTab) { _ in
+            if !tabs.contains(selection) { selection = .home }
+        }
+        .onChange(of: quickActions) { on in
+            AppRouter.applyShortcuts(enabled: on)
+        }
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .background: lock.didEnterBackground()
+            case .active: lock.didBecomeActive(grace: lockGrace)
+            default: break
+            }
+        }
+        .task(id: appLocked) {
+            // التطبيق مقفول كامل: نطلب الوجه على طول بدل ما ينتظر ضغطة
+            if appLocked && scenePhase == .active { unlock() }
+        }
         .task {
+            AppRouter.applyShortcuts(enabled: quickActions)
+            // لقطات GitHub: `-openSettings YES` يفتح شاشة الإعدادات للتصوير
+            if UserDefaults.standard.bool(forKey: "openSettings") { showSettings = true }
             // لو الشبكة بطيئة ما نعلّق المستخدم على الشعار — بعد ٦ ثوانٍ تظهر الصفحة وشريط التحميل
             try? await Task.sleep(nanoseconds: 6_000_000_000)
             hideSplash()
@@ -56,6 +117,30 @@ struct RootView: View {
         )
     }
 
+    /// اختصار أيقونة أو رابط drc-app:// — يفتح المسار في التبويب المناسب.
+    private func open(_ route: String) {
+        if route == AppRouter.settingsRoute {
+            showSettings = true
+            return
+        }
+        let target: AppTab
+        if let exact = tabs.first(where: { $0.path == route }) {
+            target = exact
+        } else if dashboardTab && route.hasPrefix("/dashboard") {
+            target = .dashboard
+        } else {
+            target = .home
+        }
+        selection = target
+        store.controller(for: target).open(path: route)
+    }
+
+    private func unlock() {
+        Task { @MainActor in
+            await lock.authenticate(reason: "افتح DRC")
+        }
+    }
+
     private func hideSplash() {
         guard showSplash else { return }
         withAnimation(.easeOut(duration: 0.35)) { showSplash = false }
@@ -64,6 +149,14 @@ struct RootView: View {
 
 struct WebTabView: View {
     @ObservedObject var controller: WebController
+    var dashboardLock: Bool
+    @ObservedObject var lock: LockManager
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// قفل «لوحة التحكم فقط»: يغطي أي تبويب صفحته الحالية من اللوحة.
+    private var locked: Bool {
+        dashboardLock && !lock.unlocked && controller.path.hasPrefix("/dashboard")
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -77,12 +170,26 @@ struct WebTabView: View {
             if controller.failed {
                 OfflineView { controller.retry() }
             }
+
+            if locked {
+                LockView(title: "لوحة التحكم مقفولة") { unlock() }
+                    .transition(.opacity)
+            }
         }
         .background(Theme.bg.ignoresSafeArea())
         .onAppear { controller.loadIfNeeded() }
+        .task(id: locked) {
+            if locked && scenePhase == .active { unlock() }
+        }
         .sheet(item: $controller.externalURL) { item in
             SafariView(url: item.url)
                 .ignoresSafeArea()
+        }
+    }
+
+    private func unlock() {
+        Task { @MainActor in
+            await lock.authenticate(reason: "افتح لوحة التحكم")
         }
     }
 }

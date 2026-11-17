@@ -41,6 +41,7 @@ targets:
         NSCameraUsageDescription: "لرفع صورة من الكاميرا في الموقع (مثل لقطات السيرفر أو صورة الحساب)."
         NSPhotoLibraryUsageDescription: "لاختيار صورة من الألبوم ورفعها في الموقع."
         NSPhotoLibraryAddUsageDescription: "لحفظ الصور من الموقع في الألبوم."
+        NSFaceIDUsageDescription: "لقفل التطبيق أو لوحة التحكم بوجهك (تشغّله من إعدادات التطبيق)."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.dreamerc.app

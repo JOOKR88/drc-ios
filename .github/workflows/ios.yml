@@ -86,12 +86,21 @@ jobs:
           sleep 25
           xcrun simctl terminate "$UDID" org.dreamerc.app || true
           mkdir -p shots
-          for t in home leaderboard shop souls profile; do
+          for t in home leaderboard shop dashboard profile; do
             xcrun simctl launch "$UDID" org.dreamerc.app -tab "$t"
             sleep 14
             xcrun simctl io "$UDID" screenshot "shots/$t.png"
             xcrun simctl terminate "$UDID" org.dreamerc.app || true
           done
+          # Souls (لما تبويب اللوحة مطفي) وشاشة إعدادات التطبيق
+          xcrun simctl launch "$UDID" org.dreamerc.app -tab souls -dashboardTab NO
+          sleep 14
+          xcrun simctl io "$UDID" screenshot "shots/souls.png"
+          xcrun simctl terminate "$UDID" org.dreamerc.app || true
+          xcrun simctl launch "$UDID" org.dreamerc.app -openSettings YES
+          sleep 10
+          xcrun simctl io "$UDID" screenshot "shots/settings.png"
+          xcrun simctl terminate "$UDID" org.dreamerc.app || true
           ls -lh shots
 
       - name: Upload screenshots
