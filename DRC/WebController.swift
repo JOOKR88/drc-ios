@@ -11,8 +11,11 @@ struct IdentifiableURL: Identifiable {
 /// فالرجوع لتبويب يرجّعك لنفس الصفحة ونفس مكان التمرير بلا تحميل.
 @MainActor
 final class WebController: NSObject, ObservableObject {
-    let tab: AppTab
+    let startURL: URL
+    let rootPath: String
     let webView: WKWebView
+    /// يُنادى بعد اكتمال كل صفحة (شاشة الدخول تعرف منه إن الدخول تمّ).
+    var onFinish: ((URL) -> Void)?
 
     @Published var progress: Double = 0
     @Published var isLoading = false
@@ -21,12 +24,20 @@ final class WebController: NSObject, ObservableObject {
     @Published var externalURL: IdentifiableURL?
     /// مسار الصفحة الحالية — يتحدّث حتى مع تنقّل الموقع الداخلي (pushState)، وعليه يعتمد قفل اللوحة.
     @Published var path: String = ""
+    @Published var title: String = ""
 
     private var observers: [NSKeyValueObservation] = []
     private let refresh = UIRefreshControl()
 
-    init(tab: AppTab) {
-        self.tab = tab
+    convenience init(tab: AppTab) {
+        self.init(startURL: startURL, rootPath: rootPath)
+    }
+
+    /// `hideAppChrome`: صفحة موقع داخل شاشة أصلية (فوقها شريط تنقّل iOS)، فنخفي رأس الموقع داخل التطبيق
+    /// من جهة التطبيق فقط — الموقع نفسه ما يتغيّر.
+    init(startURL: URL, rootPath: String, hideAppChrome: Bool = false) {
+        self.startURL = startURL
+        self.rootPath = rootPath
 
         let config = WKWebViewConfiguration()
         // نفس مخزن الكوكي لكل التبويبات: تسجّل دخول مرة وحدة وتنفع في الكل
@@ -56,6 +67,12 @@ final class WebController: NSObject, ObservableObject {
         })();
         """
         ucc.addUserScript(WKUserScript(source: hapticShim, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        if hideAppChrome {
+            // محدّدات أعلى أولوية من أنماط الموقع فتغلبها مهما كان ترتيب تحميلها
+            let css = "html body header.fixed.top-0.z-nav{display:none!important}html body main{padding-top:12px!important}"
+            let js = "(function(){var s=document.createElement('style');s.textContent='" + css + "';(document.head||document.documentElement).appendChild(s);})();"
+            ucc.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
         config.userContentController = ucc
 
         webView = WKWebView(frame: .zero, configuration: config)
@@ -65,7 +82,8 @@ final class WebController: NSObject, ObservableObject {
 
         webView.navigationDelegate = self
         webView.uiDelegate = self
-        webView.allowsBackForwardNavigationGestures = true
+        // داخل شاشة مدفوعة سحبة الرجوع لـiOS (ترجع للشاشة السابقة) لا لتاريخ الصفحة
+        webView.allowsBackForwardNavigationGestures = !hideAppChrome
         webView.allowsLinkPreview = false
         // بدون هذي يطلع وميض أبيض قبل ما ترسم الصفحة الداكنة
         webView.isOpaque = false
@@ -90,6 +108,10 @@ final class WebController: NSObject, ObservableObject {
             let value = wv.url?.path ?? ""
             Task { @MainActor in self?.path = value }
         })
+        observers.append(webView.observe(\.title, options: [.new]) { [weak self] wv, _ in
+            let value = wv.title ?? ""
+            Task { @MainActor in self?.title = value }
+        })
         observers.append(webView.observe(\.isLoading, options: [.new]) { [weak self] wv, _ in
             let value = wv.isLoading
             Task { @MainActor in self?.isLoading = value }
@@ -99,7 +121,7 @@ final class WebController: NSObject, ObservableObject {
     /// التبويب يحمّل صفحته أول مرة يظهر فيها فقط — ما نحمّل الخمس صفحات مع بعض عند التشغيل.
     func loadIfNeeded() {
         guard webView.url == nil, !webView.isLoading else { return }
-        webView.load(URLRequest(url: tab.url))
+        webView.load(URLRequest(url: startURL))
     }
 
     /// يفتح مسار في الموقع داخل هذا التبويب (اختصارات الأيقونة).
@@ -114,7 +136,7 @@ final class WebController: NSObject, ObservableObject {
         if webView.url != nil {
             webView.reload()
         } else {
-            webView.load(URLRequest(url: tab.url))
+            webView.load(URLRequest(url: startURL))
         }
     }
 
@@ -122,14 +144,14 @@ final class WebController: NSObject, ObservableObject {
     /// ولو كنت فيها أصلاً يطلع لأعلى الصفحة.
     func popToRootOrTop() {
         let current = normalize(webView.url?.path)
-        if current == normalize(tab.path) || webView.url == nil {
+        if current == normalize(rootPath) || webView.url == nil {
             webView.scrollView.setContentOffset(.zero, animated: true)
             return
         }
-        if let first = webView.backForwardList.backList.first, normalize(first.url.path) == normalize(tab.path) {
+        if let first = webView.backForwardList.backList.first, normalize(first.url.path) == normalize(rootPath) {
             webView.go(to: first)
         } else {
-            webView.load(URLRequest(url: tab.url))
+            webView.load(URLRequest(url: startURL))
         }
     }
 
@@ -194,7 +216,8 @@ extension WebController: WKNavigationDelegate {
         refresh.endRefreshing()
         failed = false
         firstLoadDone = true
-        WidgetBridge.refreshTokenIfNeeded(using: webView)
+        if let url = webView.url { onFinish?(url) }
+        Task { await WidgetBridge.refreshTokenIfNeeded() }
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -256,6 +279,19 @@ final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
 @MainActor
 final class WebStore: ObservableObject {
     private var controllers: [AppTab: WebController] = [:]
+    private var observer: NSObjectProtocol?
+
+    init() {
+        observer = NotificationCenter.default.addObserver(forName: .drcSessionChanged, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.reloadAll() }
+        }
+    }
+
+    func reloadAll() {
+        for c in controllers.values where c.webView.url != nil {
+            c.webView.reload()
+        }
+    }
 
     func controller(for tab: AppTab) -> WebController {
         if let existing = controllers[tab] { return existing }

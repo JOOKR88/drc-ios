@@ -18,7 +18,7 @@ struct SettingsView: View {
                 Section {
                     Toggle("تبويب لوحة التحكم", isOn: $dashboardTab)
                 } footer: {
-                    Text("يظهر في الشريط السفلي مكان Souls، لأن iOS يعرض خمس تبويبات بحد أقصى. Souls يبقى من الرئيسية.")
+                    Text("يظهر في الشريط السفلي مكان المتجر، لأن iOS يعرض خمس تبويبات بحد أقصى. المتجر يبقى من الرئيسية وحسابي.")
                 }
 
                 Section {

@@ -93,17 +93,25 @@ jobs:
           sleep 25
           xcrun simctl terminate "$UDID" org.dreamerc.app || true
           mkdir -p shots
-          for t in home leaderboard shop dashboard profile; do
+          for t in home leaderboard souls profile dashboard; do
             xcrun simctl launch "$UDID" org.dreamerc.app -tab "$t"
-            sleep 14
+            sleep 12
             xcrun simctl io "$UDID" screenshot "shots/$t.png"
             xcrun simctl terminate "$UDID" org.dreamerc.app || true
           done
-          # Souls (لما تبويب اللوحة مطفي) وشاشة إعدادات التطبيق
-          xcrun simctl launch "$UDID" org.dreamerc.app -tab souls -dashboardTab NO
+          # المتجر (لما تبويب اللوحة مطفي)
+          xcrun simctl launch "$UDID" org.dreamerc.app -tab shop -dashboardTab NO
           sleep 14
-          xcrun simctl io "$UDID" screenshot "shots/souls.png"
+          xcrun simctl io "$UDID" screenshot "shots/shop.png"
           xcrun simctl terminate "$UDID" org.dreamerc.app || true
+          # قارئ Souls على أكثر مقال قراءة
+          SLUG=$(curl -s https://dreamerc.org/api/app/souls | python3 -c 'import sys,json; print(json.load(sys.stdin)["articles"][0]["slug"])' || true)
+          if [ -n "$SLUG" ]; then
+            xcrun simctl launch "$UDID" org.dreamerc.app -tab souls -article "$SLUG"
+            sleep 14
+            xcrun simctl io "$UDID" screenshot "shots/article.png"
+            xcrun simctl terminate "$UDID" org.dreamerc.app || true
+          fi
           xcrun simctl launch "$UDID" org.dreamerc.app -openSettings YES
           sleep 10
           xcrun simctl io "$UDID" screenshot "shots/settings.png"

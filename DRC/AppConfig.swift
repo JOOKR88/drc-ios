@@ -64,11 +64,19 @@ enum AppTab: String, CaseIterable, Identifiable {
     var url: URL { URL(string: AppConfig.base + path)! }
 
     /// الشريط يعرض ٥ تبويبات بحد أقصى (السادس يصير «المزيد» ويخرّب الشكل)،
-    /// فاللوحة لما تتفعّل تاخذ مكان Souls — وSouls يبقى من الرئيسية.
+    /// فاللوحة لما تتفعّل تاخذ مكان المتجر — والمتجر يبقى من الرئيسية وحسابي.
     static func visible(dashboard: Bool) -> [AppTab] {
         dashboard
-            ? [.home, .leaderboard, .shop, .dashboard, .profile]
+            ? [.home, .leaderboard, .dashboard, .souls, .profile]
             : [.home, .leaderboard, .shop, .souls, .profile]
+    }
+
+    /// شاشات SwiftUI أصلية؛ الباقي (المتجر واللوحة) صفحات الموقع داخل التطبيق.
+    var isNative: Bool {
+        switch self {
+        case .home, .leaderboard, .souls, .profile: return true
+        case .shop, .dashboard: return false
+        }
     }
 }
 

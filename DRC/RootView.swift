@@ -8,6 +8,7 @@ struct RootView: View {
     @State private var selection: AppTab = RootView.initialTab()
     @State private var showSplash = true
     @State private var showSettings = false
+    @State private var webSheet: SheetRoute?
     @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage(SettingKey.dashboardTab) private var dashboardTab = true
@@ -32,13 +33,9 @@ struct RootView: View {
         ZStack {
             TabView(selection: tabSelection) {
                 ForEach(tabs) { tab in
-                    WebTabView(
-                        controller: store.controller(for: tab),
-                        dashboardLock: dashboardLockOn,
-                        lock: lock
-                    )
-                    .tabItem { Label(tab.title, systemImage: tab.symbol) }
-                    .tag(tab)
+                    tabContent(tab)
+                        .tabItem { Label(tab.title, systemImage: tab.symbol) }
+                        .tag(tab)
                 }
             }
 
@@ -61,6 +58,20 @@ struct RootView: View {
         }
         // العربي أولاً: التبويبات تبدأ من اليمين مثل الموقع
         .environment(\.layoutDirection, .rightToLeft)
+        .environmentObject(lock)
+        .sheet(item: $webSheet) { item in
+            NavigationStack {
+                WebScreen(path: item.path, title: item.title)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("إغلاق") { webSheet = nil }
+                        }
+                    }
+            }
+            .environmentObject(lock)
+            .environment(\.layoutDirection, .rightToLeft)
+            .preferredColorScheme(.dark)
+        }
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(lock)
@@ -68,7 +79,7 @@ struct RootView: View {
                 .preferredColorScheme(.dark)
         }
         .onReceive(store.controller(for: RootView.initialTab()).$firstLoadDone) { done in
-            if done { hideSplash() }
+            if done && !RootView.initialTab().isNative { hideSplash() }
         }
         .onOpenURL { url in
             router.handle(appURL: url)
@@ -97,6 +108,11 @@ struct RootView: View {
         }
         .task {
             AppRouter.applyShortcuts(enabled: quickActions)
+            if RootView.initialTab().isNative {
+                // الشاشات الأصلية تفتح من الكاش فوراً — الشعار لحظة بس
+                try? await Task.sleep(nanoseconds: 450_000_000)
+                hideSplash()
+            }
             // لقطات GitHub: `-openSettings YES` يفتح شاشة الإعدادات للتصوير
             if UserDefaults.standard.bool(forKey: "openSettings") { showSettings = true }
             // لو الشبكة بطيئة ما نعلّق المستخدم على الشعار — بعد ٦ ثوانٍ تظهر الصفحة وشريط التحميل
@@ -111,7 +127,7 @@ struct RootView: View {
             get: { selection },
             set: { newValue in
                 if newValue == selection {
-                    store.controller(for: newValue).popToRootOrTop()
+                    if !newValue.isNative { store.controller(for: newValue).popToRootOrTop() }
                 } else {
                     UISelectionFeedbackGenerator().selectionChanged()
                     selection = newValue
@@ -126,16 +142,35 @@ struct RootView: View {
             showSettings = true
             return
         }
-        let target: AppTab
         if let exact = tabs.first(where: { $0.path == route }) {
-            target = exact
+            selection = exact
+            if !exact.isNative { store.controller(for: exact).open(path: route) }
         } else if dashboardTab && route.hasPrefix("/dashboard") {
-            target = .dashboard
+            selection = .dashboard
+            store.controller(for: .dashboard).open(path: route)
         } else {
-            target = .home
+            // مسار بلا تبويب: صفحة الموقع في ورقة فوق التطبيق
+            webSheet = SheetRoute(path: route, title: route.hasPrefix("/dashboard") ? "لوحة التحكم" : "DRC")
         }
-        selection = target
-        store.controller(for: target).open(path: route)
+    }
+
+    @ViewBuilder
+    private func tabContent(_ tab: AppTab) -> some View {
+        switch tab {
+        case .home:
+            HomeView(selectTab: { t in
+                Haptic.select()
+                selection = tabs.contains(t) ? t : .home
+            })
+        case .leaderboard:
+            LeaderboardView()
+        case .souls:
+            SoulsView()
+        case .profile:
+            ProfileView()
+        case .shop, .dashboard:
+            WebTabView(controller: store.controller(for: tab), dashboardLock: dashboardLockOn, lock: lock)
+        }
     }
 
     private func unlock() {
@@ -226,4 +261,10 @@ struct WebViewContainer: UIViewRepresentable {
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
     }
+}
+
+struct SheetRoute: Identifiable {
+    let id = UUID()
+    let path: String
+    let title: String
 }
