@@ -68,7 +68,15 @@ final class WebController: NSObject, ObservableObject {
         """
         ucc.addUserScript(WKUserScript(source: hapticShim, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // أي عنصر أعرض من الشاشة كان يخلّي iOS يصغّر الصفحة كلها — نقصّه بدل ما تطلع الصفحة أعرض من الجوال
-        let fit = "(function(){var s=document.createElement('style');s.textContent='html,body{overflow-x:clip!important}';(document.head||document.documentElement).appendChild(s);})();"
+        // وعلى شاشة الجوال: الموقع يحط بطاقة داخل بطاقة بحواف ٢٠ بكسل لكل وحدة، فيطلع النص عموداً ضيقاً —
+        // نصغّر الحواف (من جهة التطبيق فقط) فياخذ المحتوى عرض الشاشة
+        let fitCSS = "html,body{overflow-x:clip!important}"
+            + "@media (max-width:520px){"
+            + "html body main{padding-left:10px!important;padding-right:10px!important}"
+            + "html body main .card{padding-left:14px!important;padding-right:14px!important}"
+            + "html body main .card .card,html body main .card .rounded-lg.border,html body main .card .rounded-xl.border"
+            + "{padding-left:12px!important;padding-right:12px!important}}"
+        let fit = "(function(){var s=document.createElement('style');s.textContent='" + fitCSS + "';(document.head||document.documentElement).appendChild(s);})();"
         ucc.addUserScript(WKUserScript(source: fit, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         if hideAppChrome {
             // محدّدات أعلى أولوية من أنماط الموقع فتغلبها مهما كان ترتيب تحميلها
@@ -93,8 +101,9 @@ final class WebController: NSObject, ObservableObject {
         webView.isOpaque = false
         webView.backgroundColor = Theme.bgUI
         webView.scrollView.backgroundColor = Theme.bgUI
-        // الموقع يحسب حواف الشاشة بنفسه (env(safe-area-inset-*))، فما نضيف إزاحة ثانية فوقها
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        // تبويب الموقع: الموقع يحسب حواف الشاشة بنفسه (env(safe-area-inset-*)) فما نضيف إزاحة ثانية.
+        // صفحة داخل شاشة أصلية: iOS يزيح المحتوى تحت شريط التنقّل وفوق شريط التبويبات — وإلا اختفى آخر الصفحة ورا الشريط
+        webView.scrollView.contentInsetAdjustmentBehavior = hideAppChrome ? .automatic : .never
         webView.scrollView.keyboardDismissMode = .interactive
         if #available(iOS 16.4, *) {
             webView.isInspectable = true
