@@ -4,7 +4,18 @@ import SwiftUI
 struct HomeView: View {
     var selectTab: (AppTab) -> Void
     @ObservedObject private var account = AccountStore.shared
+    @ObservedObject private var board = LeaderboardStore.shared
+    @ObservedObject private var souls = SoulsStore.shared
     @State private var showLogin = false
+
+    /// لغير المسجّل (أو قبل وصول الملخّص): أحدث مقالات Souls بصور من الفهرس.
+    private var latestSouls: [MeSummary.SoulCard] {
+        (souls.index?.articles ?? [])
+            .filter { $0.image != nil }
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(6)
+            .map { MeSummary.SoulCard(href: "/souls/" + $0.slug, title: $0.title, image: $0.image, game: $0.game) }
+    }
 
     var body: some View {
         NavigationStack {
@@ -14,6 +25,10 @@ struct HomeView: View {
 
                     if account.loggedIn == false {
                         WelcomeCard { showLogin = true }
+                        if let top = board.data["xp"]?.rows, !top.isEmpty {
+                            TopPlayersCard(rows: Array(top.prefix(5)), selectTab: selectTab)
+                        }
+                        if !latestSouls.isEmpty { SoulsStrip(items: latestSouls, selectTab: selectTab) }
                     } else if let s = account.summary {
                         PointsCard(s: s)
                         if account.isOwner, let o = account.ownerStats {
@@ -46,7 +61,51 @@ struct HomeView: View {
                 }
             }
         }
-        .task { await account.refresh() }
+        .task {
+            await account.refresh()
+            if account.loggedIn != true {
+                await board.load("xp")
+                await souls.loadIndex()
+            }
+        }
+    }
+}
+
+/// أبطال المتصدرين في الرئيسية لغير المسجّل.
+private struct TopPlayersCard: View {
+    let rows: [LbRow]
+    var selectTab: (AppTab) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                SectionTitle(title: "أبطال DRC", subtitle: "الأعلى XP عبر كل السيرفرات")
+                Button("الكل") {
+                    Haptic.tap()
+                    selectTab(.leaderboard)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.gold)
+            }
+            ForEach(rows) { r in
+                HStack(spacing: 12) {
+                    Text("\(r.rank)")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(r.rank == 1 ? Theme.gold : Theme.muted)
+                        .frame(width: 22)
+                    Avatar(url: r.avatar, size: 36)
+                    Text(r.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.content)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(Fmt.n(r.points))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.content)
+                }
+            }
+        }
+        .card()
     }
 }
 

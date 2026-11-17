@@ -15,18 +15,21 @@ extension Theme {
 struct RemoteImage: View {
     let url: String?
 
+    // الصورة تملأ الإطار المعطى وتنقص منه — بدون هذا تتمدّد scaledToFill وتدفع ما فوقها (عنوان البطاقة) لبرّا
     var body: some View {
-        if let u = Fmt.absolute(url) {
-            AsyncImage(url: u, transaction: Transaction(animation: .easeOut(duration: 0.25))) { phase in
-                if case .success(let image) = phase {
-                    image.resizable().scaledToFill().transition(.opacity)
-                } else {
-                    Theme.surface2
+        Theme.surface2
+            .overlay {
+                if let u = Fmt.absolute(url) {
+                    AsyncImage(url: u, transaction: Transaction(animation: .easeOut(duration: 0.25))) { phase in
+                        if case .success(let image) = phase {
+                            image.resizable().scaledToFill().transition(.opacity)
+                        } else {
+                            Theme.surface2
+                        }
+                    }
                 }
             }
-        } else {
-            Theme.surface2
-        }
+            .clipped()
     }
 }
 

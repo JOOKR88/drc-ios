@@ -75,12 +75,12 @@ struct SoulsView: View {
             .searchable(text: $query, prompt: "ابحث في المقالات")
             .refreshable { await store.loadIndex(force: true) }
             .task {
-                await store.loadIndex()
                 // لقطات GitHub: `-article <slug>` يفتح مقالاً مباشرة
                 if !openedLaunchArticle, let slug = UserDefaults.standard.string(forKey: "article"), !slug.isEmpty {
                     openedLaunchArticle = true
                     path.append(Route.article(slug: slug))
                 }
+                await store.loadIndex()
             }
             .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
         }
@@ -97,6 +97,7 @@ private struct FeaturedPager: View {
                 NavigationLink(value: Route.article(slug: a.slug)) {
                     ZStack(alignment: .bottomLeading) {
                         RemoteImage(url: a.image)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         LinearGradient(colors: [.clear, .black.opacity(0.9)], startPoint: .center, endPoint: .bottom)
                         VStack(alignment: .leading, spacing: 6) {
                             GameBadge(key: a.game)
@@ -106,8 +107,10 @@ private struct FeaturedPager: View {
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
                         }
-                        .padding(18)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 34)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                 }
                 .buttonStyle(PressableStyle())
