@@ -67,10 +67,13 @@ final class WebController: NSObject, ObservableObject {
         })();
         """
         ucc.addUserScript(WKUserScript(source: hapticShim, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // أي عنصر أعرض من الشاشة كان يخلّي iOS يصغّر الصفحة كلها — نقصّه بدل ما تطلع الصفحة أعرض من الجوال
+        let fit = "(function(){var s=document.createElement('style');s.textContent='html,body{overflow-x:clip!important}';(document.head||document.documentElement).appendChild(s);})();"
+        ucc.addUserScript(WKUserScript(source: fit, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         if hideAppChrome {
             // محدّدات أعلى أولوية من أنماط الموقع فتغلبها مهما كان ترتيب تحميلها
             // + قائمة اللوحة الجانبية: التطبيق له قائمة أصلية أكبر بدلها
-            let css = "html body header.fixed.top-0.z-nav{display:none!important}html body main{padding-top:12px!important}html body aside[class*=\"md:top-20\"]{display:none!important}"
+            let css = "html body header.fixed.top-0.z-nav{display:none!important}html body main{padding-top:12px!important}html body aside[class*=\"md:top-20\"]{display:none!important}html,body{overflow-x:clip!important;max-width:100%!important}"
             let js = "(function(){var s=document.createElement('style');s.textContent='" + css + "';(document.head||document.documentElement).appendChild(s);})();"
             ucc.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         }
@@ -119,12 +122,19 @@ final class WebController: NSObject, ObservableObject {
         })
     }
 
-    /// تكبير صفحات الموقع داخل التطبيق (من الإعدادات): يكبّر الخط والأزرار مع بقاء التصميم متجاوباً.
+    /// حجم الخط في صفحات الموقع (من الإعدادات). كان تكبيراً للصفحة كاملة (pageZoom) فطلعت أعرض من الشاشة
+    /// واضطر الأونر يصغّرها بإصبعه — الآن يكبَر **الخط فقط** والصفحة تبقى بمقاس الشاشة.
     func applyZoom() {
+        if webView.pageZoom != 1 { webView.pageZoom = 1 }
         let stored = UserDefaults.standard.double(forKey: SettingKey.webZoom)
-        let zoom = stored > 0 ? stored : 1.12
-        if abs(webView.pageZoom - zoom) > 0.001 { webView.pageZoom = zoom }
+        let percent = Int(((stored > 0 ? stored : 1.0) * 100).rounded())
+        let js = "document.documentElement.style.webkitTextSizeAdjust='\(percent)%';"
+        webView.evaluateJavaScript(js)
+        textSizePercent = percent
     }
+
+    /// يُعاد تطبيقه مع كل صفحة جديدة (التنقّل الكامل يمسح النمط).
+    private var textSizePercent = 100
 
     /// التبويب يحمّل صفحته أول مرة يظهر فيها فقط — ما نحمّل الخمس صفحات مع بعض عند التشغيل.
     func loadIfNeeded() {
@@ -225,6 +235,9 @@ extension WebController: WKNavigationDelegate {
         failed = false
         firstLoadDone = true
         if let url = webView.url { onFinish?(url) }
+        if textSizePercent != 100 {
+            webView.evaluateJavaScript("document.documentElement.style.webkitTextSizeAdjust='\(textSizePercent)%';")
+        }
         Task { await WidgetBridge.refreshTokenIfNeeded() }
     }
 

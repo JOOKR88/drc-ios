@@ -8,7 +8,7 @@ struct SettingsView: View {
     @AppStorage(SettingKey.lockEnabled) private var lockEnabled = false
     @AppStorage(SettingKey.lockScope) private var lockScope = LockScope.dashboard.rawValue
     @AppStorage(SettingKey.lockGrace) private var lockGrace = 60
-    @AppStorage(SettingKey.webZoom) private var webZoom = 1.12
+    @AppStorage(SettingKey.webZoom) private var webZoom = 1.0
 
     @EnvironmentObject private var lock: LockManager
     @Environment(\.dismiss) private var dismiss
@@ -23,13 +23,13 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker("حجم صفحات الموقع", selection: $webZoom) {
+                    Picker("خط صفحات الموقع", selection: $webZoom) {
                         Text("عادي").tag(1.0)
-                        Text("كبير").tag(1.12)
-                        Text("أكبر").tag(1.25)
+                        Text("كبير").tag(1.15)
+                        Text("أكبر").tag(1.3)
                     }
                 } footer: {
-                    Text("يكبّر الخط والأزرار في صفحات الموقع داخل التطبيق (اللوحة والمتجر). يطبَّق لما تفتح الصفحة.")
+                    Text("يكبّر الخط في صفحات الموقع داخل التطبيق (اللوحة، سيرفراتي، المتجر…) والصفحة تبقى بمقاس الشاشة.")
                 }
 
                 Section {
