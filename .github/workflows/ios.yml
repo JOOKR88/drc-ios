@@ -1,0 +1,109 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes | tail -5
+
+      - name: Generate project (XcodeGen)
+        run: |
+          brew install xcodegen >/dev/null
+          xcodegen generate
+
+      # نسخة الجهاز بلا توقيع: SideStore يوقّعها على الجوال بحساب Apple المجاني
+      - name: Build IPA (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project DRC.xcodeproj -scheme DRC -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee build.log | grep -E "error:|warning:.*(nearly matches|DRC/)|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/Build/Products/Release-iphoneos/DRC.app
+          mkdir -p out/Payload
+          cp -R build/Build/Products/Release-iphoneos/DRC.app out/Payload/
+          (cd out && zip -qry DRC.ipa Payload)
+          ls -lh out/DRC.ipa
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: DRC-ipa
+          path: out/DRC.ipa
+
+      # لقطات على محاكي آيفون: نتحقق من الشكل بدون ماك
+      - name: Simulator screenshots
+        run: |
+          set -o pipefail
+          xcodebuild -project DRC.xcodeproj -scheme DRC -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath simbuild \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -3
+          APP=simbuild/Build/Products/Debug-iphonesimulator/DRC.app
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          rts = sorted([r for r in d if "iOS" in r], reverse=True)
+          for want in ("iPhone 17 Pro", "iPhone 16 Pro", "iPhone 15 Pro", "iPhone"):
+              for r in rts:
+                  for dev in d[r]:
+                      if dev["name"] == want or (want == "iPhone" and dev["name"].startswith("iPhone")):
+                          print(dev["udid"]); sys.exit()
+          ')
+          echo "device: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 || true
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p shots
+          for t in home leaderboard shop souls profile; do
+            xcrun simctl launch "$UDID" org.dreamerc.app -tab "$t"
+            sleep 14
+            xcrun simctl io "$UDID" screenshot "shots/$t.png"
+            xcrun simctl terminate "$UDID" org.dreamerc.app || true
+          done
+          ls -lh shots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots/
+          if-no-files-found: ignore
+
+      # إصدار ثابت الرابط: https://github.com/<repo>/releases/download/latest/DRC.ipa
+      - name: Publish IPA to the "latest" release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest --prerelease --title "DRC iOS (latest)" --notes "Unsigned build — install with SideStore."
+          gh release upload latest out/DRC.ipa --clobber

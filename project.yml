@@ -1,0 +1,54 @@
+# مشروع Xcode يتولّد من هذا الملف على أجهزة GitHub (XcodeGen) — ما نخزّن .xcodeproj في المستودع
+# لأننا ما نملك ماك نفتحه عليه، والملف النصي أسهل يتراجع ويُقرأ من الراسبيري.
+name: DRC
+options:
+  bundleIdPrefix: org.dreamerc
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ar
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+targets:
+  DRC:
+    type: application
+    platform: iOS
+    sources:
+      - path: DRC
+    info:
+      path: DRC/Info.plist
+      properties:
+        CFBundleDisplayName: DRC
+        CFBundleName: DRC
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: ar
+        CFBundleLocalizations: [ar, en]
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
+          UIImageRespectsSafeAreaInsets: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIUserInterfaceStyle: Dark
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSCameraUsageDescription: "لرفع صورة من الكاميرا في الموقع (مثل لقطات السيرفر أو صورة الحساب)."
+        NSPhotoLibraryUsageDescription: "لاختيار صورة من الألبوم ورفعها في الموقع."
+        NSPhotoLibraryAddUsageDescription: "لحفظ الصور من الموقع في الألبوم."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.dreamerc.app
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: DRC/Info.plist
+        ENABLE_PREVIEWS: NO
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Manual

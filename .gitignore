@@ -1,0 +1,8 @@
+DRC.xcodeproj/
+build/
+simbuild/
+out/
+shots/
+*.ipa
+.DS_Store
+DRC/Info.plist
