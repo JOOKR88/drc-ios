@@ -1,5 +1,7 @@
+import BackgroundTasks
 import SwiftUI
 import UIKit
+import UserNotifications
 
 /// يوصل طلبات «افتح كذا» من برّا الواجهة (اختصارات الأيقونة، وروابط drc-app:// من الموقع) إلى RootView.
 @MainActor
@@ -56,8 +58,49 @@ final class AppRouter: ObservableObject {
     }
 }
 
-/// SwiftUI ما يوصّل اختصارات الأيقونة بنفسه؛ نحتاج مندوب التطبيق والمشهد.
-final class AppDelegate: NSObject, UIApplicationDelegate {
+/// SwiftUI ما يوصّل اختصارات الأيقونة ولا الإشعارات ولا مهام الخلفية بنفسه؛ نحتاج مندوب التطبيق والمشهد.
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        // فحص التنبيهات في الخلفية — لازم يتسجّل قبل ما يخلص الإقلاع
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: NotifPoller.taskID, using: nil) { task in
+            Task { @MainActor in
+                NotifPoller.schedule()
+                let ok = await NotifPoller.check(background: true)
+                task.setTaskCompleted(success: ok)
+            }
+            task.expirationHandler = { task.setTaskCompleted(success: false) }
+        }
+        return true
+    }
+
+    /// الإشعار يظهر حتى والتطبيق مفتوح (بانر فوق).
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .list]
+    }
+
+    /// الضغط على الإشعار: يفتح الرسالة داخل التطبيق مباشرة (بجلسة التطبيق، بلا «سجّل») ويعلّمها مقروءة.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let info = response.notification.request.content.userInfo
+        let href = info["href"] as? String ?? "/notifications"
+        let id = info["id"] as? String
+        await MainActor.run {
+            AppRouter.shared.pending = href
+        }
+        if let id {
+            await NotificationsStore.shared.markRead(id)
+        }
+    }
+
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,

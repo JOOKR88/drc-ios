@@ -23,6 +23,14 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        NotificationSettingsView()
+                    } label: {
+                        Label("التنبيهات والإشعارات", systemImage: "bell.badge")
+                    }
+                }
+
+                Section {
                     Picker("خط صفحات الموقع", selection: $webZoom) {
                         Text("عادي").tag(1.0)
                         Text("كبير").tag(1.15)

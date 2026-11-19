@@ -10,6 +10,9 @@ struct RootView: View {
     @State private var showSplash = true
     @State private var showSettings = false
     @State private var webSheet: SheetRoute?
+    /// وجهة تنتظر تسجيل الدخول (ضغطت إشعاراً والجلسة منتهية): ندخّلك ثم نكمل لها مباشرة
+    @State private var routeAfterLogin: String?
+    @State private var showLogin = false
     @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage(SettingKey.dashboardTab) private var dashboardTab = true
@@ -63,7 +66,8 @@ struct RootView: View {
         .environmentObject(lock)
         .sheet(item: $webSheet) { item in
             NavigationStack {
-                WebScreen(path: item.path, title: item.title)
+                RouteDestination(route: Route.forPath(item.path, title: item.title))
+                    .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("إغلاق") { webSheet = nil }
@@ -73,6 +77,19 @@ struct RootView: View {
             .environmentObject(lock)
             .environment(\.layoutDirection, .rightToLeft)
             .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showLogin) {
+            LoginSheet {
+                Task {
+                    await account.refresh()
+                    NotificationCenter.default.post(name: .drcSessionChanged, object: nil)
+                    if let next = routeAfterLogin {
+                        routeAfterLogin = nil
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        open(next)
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -99,11 +116,20 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { phase in
             switch phase {
-            case .background: lock.didEnterBackground()
+            case .background:
+                lock.didEnterBackground()
+                NotifPoller.schedule()
             case .active:
                 lock.didBecomeActive(grace: lockGrace)
-                Task { await account.refreshUnread() }
             default: break
+            }
+        }
+        .task(id: scenePhase) {
+            // والتطبيق مفتوح: نشيّك على التنبيهات كل دقيقة (الجديد يطلع بانر فوق)
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                await NotifPoller.check(background: false)
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
             }
         }
         .task(id: appLocked) {
@@ -150,6 +176,12 @@ struct RootView: View {
             showSettings = true
             return
         }
+        // الجلسة منتهية: الدخول أولاً ثم نفس الرسالة — بدل صفحة «سجّل دخولك» داخل الصفحة
+        if account.loggedIn == false {
+            routeAfterLogin = route
+            showLogin = true
+            return
+        }
         if let exact = tabs.first(where: { $0.path == route }) {
             selection = exact
             if !exact.isNative { store.controller(for: exact).open(path: route) }
@@ -157,8 +189,9 @@ struct RootView: View {
             selection = .dashboard
             DashboardNavigator.shared.open(route)
         } else {
-            // مسار بلا تبويب: صفحة الموقع في ورقة فوق التطبيق
-            webSheet = SheetRoute(path: route, title: route.hasPrefix("/dashboard") ? "لوحة التحكم" : "DRC")
+            // مسار بلا تبويب: وجهته (أصلية أو صفحة الموقع) في ورقة فوق التطبيق
+            let title = route.hasPrefix("/dashboard") ? "لوحة التحكم" : (route.hasPrefix("/ark") ? "متجر آرك" : "DRC")
+            webSheet = SheetRoute(path: route, title: title)
         }
     }
 

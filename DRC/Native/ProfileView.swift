@@ -24,7 +24,7 @@ struct ProfileView: View {
                     Section("حسابي") {
                         row("صفحتي في الموقع", "person.text.rectangle", .web(path: "/profile", title: "صفحتي"))
                         row("سيرفراتي", "server.rack", .web(path: "/servers", title: "سيرفراتي"))
-                        row("التنبيهات", "bell", .web(path: "/notifications", title: "التنبيهات"), badge: account.unread)
+                        row("التنبيهات", "bell", .notifications, badge: account.unread)
                         row("المتجر", "bag", .web(path: "/shop", title: "المتجر"))
                         row("طلبات آرك", "shippingbox", .web(path: "/ark/orders", title: "طلبات آرك"))
                     }

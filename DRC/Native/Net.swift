@@ -25,10 +25,18 @@ enum API {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
         let mine = cookies.filter { $0.domain.hasSuffix(AppConfig.host) }
         guard !mine.isEmpty else { return nil }
-        return HTTPCookie.requestHeaderFields(with: mine)["Cookie"]
+        let header = HTTPCookie.requestHeaderFields(with: mine)["Cookie"]
+        // نسخة للفحص في الخلفية (بلا متصفح) — تُمسح مع تسجيل الخروج
+        if let header, header != lastSaved {
+            Keychain.set(header, for: "cookie")
+            lastSaved = header
+        }
+        return header
     }
 
-    static func request(_ path: String, method: String = "GET", body: Data? = nil, bearer: String? = nil) async throws -> Data {
+    private static var lastSaved: String?
+
+    static func request(_ path: String, method: String = "GET", body: Data? = nil, bearer: String? = nil, storedCookie: Bool = false) async throws -> Data {
         guard let url = URL(string: AppConfig.base + path) else { throw APIError.http(0) }
         var req = URLRequest(url: url)
         req.httpMethod = method
@@ -38,7 +46,7 @@ enum API {
         if body != nil { req.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         if let bearer {
             req.setValue("Bearer " + bearer, forHTTPHeaderField: "Authorization")
-        } else if let cookie = await cookieHeader() {
+        } else if let cookie = storedCookie ? Keychain.get("cookie") : await cookieHeader() {
             req.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
         let (data, response) = try await session.data(for: req)

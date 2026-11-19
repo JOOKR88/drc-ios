@@ -6,6 +6,26 @@ enum Route: Hashable {
     case article(slug: String)
     case dashboardMenu
     case stats
+    case notifications
+    case notificationSettings
+
+    /// أي رابط من الموقع (تنبيه، إشعار، رابط داخل صفحة) ⇐ وجهته داخل التطبيق.
+    /// روابط ark.dreamerc.org تتحوّل لنفس الصفحة تحت /ark على النطاق الرئيسي (نفس الجلسة، بلا «سجّل»).
+    static func forPath(_ raw: String, title: String = "DRC") -> Route {
+        var path = raw
+        if let url = URL(string: raw), let host = url.host?.lowercased(), host.hasSuffix(AppConfig.host) {
+            path = url.path.isEmpty ? "/" : url.path
+            if host.hasPrefix("ark."), !path.hasPrefix("/ark") { path = "/ark" + (path == "/" ? "" : path) }
+            if let q = url.query { path += "?" + q }
+        }
+        let bare = path.split(separator: "?").first.map(String.init) ?? path
+        if bare == "/notifications" { return .notifications }
+        if bare == "/dashboard" { return .dashboardMenu }
+        if bare == "/dashboard/stats" { return .stats }
+        let parts = bare.split(separator: "/")
+        if parts.count == 2, parts[0] == "souls" { return .article(slug: String(parts[1])) }
+        return .web(path: path, title: title)
+    }
 }
 
 struct RouteDestination: View {
@@ -21,6 +41,10 @@ struct RouteDestination: View {
             DashboardMenu()
         case .stats:
             StatsView()
+        case .notifications:
+            NotificationsView()
+        case .notificationSettings:
+            NotificationSettingsView()
         }
     }
 }

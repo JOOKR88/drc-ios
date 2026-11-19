@@ -320,7 +320,7 @@ private struct QuickGrid: View {
         var list: [Item] = [
             Item(id: "shop", title: "المتجر", symbol: "bag.fill", route: .web(path: "/shop", title: "المتجر"), tab: nil),
             Item(id: "servers", title: "سيرفراتي", symbol: "server.rack", route: .web(path: "/servers", title: "سيرفراتي"), tab: nil),
-            Item(id: "bell", title: "التنبيهات", symbol: "bell.fill", route: .web(path: "/notifications", title: "التنبيهات"), tab: nil),
+            Item(id: "bell", title: "التنبيهات", symbol: "bell.fill", route: .notifications, tab: nil),
             Item(id: "souls", title: "Souls", symbol: "book.closed.fill", route: nil, tab: .souls),
             Item(id: "ark", title: "آرك", symbol: "shippingbox.fill", route: .web(path: "/ark", title: "متجر آرك"), tab: nil),
             Item(id: "sugg", title: "الاقتراحات", symbol: "lightbulb.fill", route: .web(path: "/suggestions", title: "الاقتراحات"), tab: nil),

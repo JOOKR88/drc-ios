@@ -52,6 +52,10 @@ final class AccountStore: ObservableObject {
         }
     }
 
+    func setUnread(_ n: Int) {
+        unread = n
+    }
+
     func refreshUnread() async {
         guard loggedIn == true,
               let d = try? await API.get("/api/notifications?summary=1"),
@@ -86,6 +90,9 @@ final class AccountStore: ObservableObject {
             modifiedSince: .distantPast
         )
         WidgetBridge.clear()
+        Keychain.set(nil, for: "cookie")
+        UserDefaults.standard.removeObject(forKey: NotifKey.seen)
+        await NotifPoller.updateBadge(0)
         clearLocal()
         NotificationCenter.default.post(name: .drcSessionChanged, object: nil)
     }

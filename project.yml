@@ -42,6 +42,9 @@ targets:
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        # فحص التنبيهات في الخلفية (بلا Push من السيرفر — يحتاج حساب Apple المدفوع)
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [org.dreamerc.app.refresh]
         # drc-app:// — زر الإعدادات في رأس الموقع، والضغط على الودجت
         CFBundleURLTypes:
           - CFBundleURLName: org.dreamerc.app
